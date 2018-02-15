@@ -1,3 +1,16 @@
+"""Functions for projecting spherical coordinates
+
+Authors
+-------
+
+    Johannes Sahlmann
+
+Use
+---
+
+"""
+
+
 from astropy.modeling import models as astmodels
 from astropy.modeling import rotations as astrotations
 

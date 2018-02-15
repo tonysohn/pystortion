@@ -1,7 +1,26 @@
+"""Tests for the projection functions
+
+Authors
+-------
+
+    Johannes Sahlmann
+
+Usage
+-----
+
+    pytest -s test_projection.py
+
+
+
+"""
+
 from __future__ import print_function
-import unittest
 import numpy as np
+
+import unittest
+import pytest
 from astropy import units as u
+
 from ..pystortion import projection
 
 

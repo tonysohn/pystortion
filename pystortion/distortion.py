@@ -1,3 +1,22 @@
+"""Classes and functions to support analysis and interpretation of geometric distortion in astronomical imaging
+instruments
+
+Authors
+-------
+
+    Johannes Sahlmann
+
+Use
+---
+    import distortion
+
+
+
+"""
+
+
+
+
 from __future__ import print_function
 import os
 import sys
@@ -194,7 +213,7 @@ class lazAstrometryCoefficients(object):
                                                                           scaleFactor=scaleFactor, nformat=nformat)
 
     def plotResiduals(self, evaluation_frame_number, outDir, nameSeed, omc_scale=1., save_plot=1, omc_unit='undefined',
-                      xy_unit='undefined', xy_scale=1., **kwargs):
+                      xy_unit='undefined', xy_scale=1., title=None, verbose=False, **kwargs):
         #         nameSeed += '_k%d' % self.k
 
         ii = evaluation_frame_number
@@ -206,12 +225,13 @@ class lazAstrometryCoefficients(object):
         U = self.resx[ii].residuals * omc_scale
         V = self.resy[ii].residuals * omc_scale
 
-        print('maximum residual amplitude %3.3f ' % (np.max(np.sqrt(U ** 2 + V ** 2))))
+        if verbose:
+            print('maximum residual amplitude %3.3f ' % (np.max(np.sqrt(U ** 2 + V ** 2))))
 
         omc = np.vstack((U, V)).T
         helpers.plotting_helpers.histogram_with_gaussian_fit(omc, facecolors=['b', 'r'], linecolors=['b', 'r'], labels=['X', 'Y'],
                                     xlabel='Residual O-C (%s)' % omc_unit, normed=1, save_plot=save_plot, out_dir=outDir,
-                                    name_seed=nameSeed, separate_panels=True, **kwargs)
+                                    name_seed=nameSeed, separate_panels=True, titles=title, **kwargs)
 
         # plot residuals on sky
         fig = pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
@@ -222,16 +242,19 @@ class lazAstrometryCoefficients(object):
         pl.axis('equal')
         pl.xlabel('X (%s)' % xy_unit)
         pl.ylabel('Y (%s)' % xy_unit)
-        pl.title('Distortion residuals (k=%d)' % self.k)
+        title_string = 'Residuals (k={})'.format(self.k)
+        if title is not None:
+            title_string = '{}, {}'.format(title, title_string)
+        pl.title(title_string)
 
         pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_distortionResidualsOnSky.pdf' % nameSeed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
 
+
         cm = pl.cm.get_cmap('RdYlBu')
         #         cm = pl.cm.get_cmap('Greys')
-
         axes = ['X', 'Y']
         fig = pl.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
         pl.clf()
@@ -253,8 +276,10 @@ class lazAstrometryCoefficients(object):
             pl.axis('equal')
             pl.xlabel(xlabl)
             pl.ylabel(ylabl)
-        # pl.colorbar(format='%1.1e')
         fig.tight_layout(h_pad=0.0)
+        if title is not None:
+            pl.title(title)
+
         pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_residuals_sky.pdf' % nameSeed)
@@ -266,6 +291,8 @@ class lazAstrometryCoefficients(object):
         pl.plot(xy[0], self.resx[ii].residuals * omc_scale, 'b.')
         pl.xlabel('X (%s)' % xy_unit)
         pl.ylabel('Residuals in X (%s)' % omc_unit)
+        if title is not None:
+            pl.title(title)
         pl.subplot(1, 2, 2)
         pl.plot(xy[1], self.resy[ii].residuals * omc_scale, 'r.')
         pl.xlabel('Y (%s)' % xy_unit)

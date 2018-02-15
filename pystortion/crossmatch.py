@@ -1,24 +1,273 @@
+"""Functions to facilitate crossmatching of sky catalogs
 
+Authors
+-------
+
+    Johannes Sahlmann
+
+Use
+---
+
+"""
+
+
+import os
 import copy
 import numpy as np
 import pickle
+import pylab as pl
+from matplotlib.ticker import FormatStrFormatter
 
 from astropy import units as u
 from astropy.table import Table
 from astropy.coordinates import SkyCoord
-import pylab as pl
-
-from matplotlib.ticker import FormatStrFormatter
-
 
 from .projection import Pix2RADec_TAN, RADec2Pix_TAN
 from .distortion import bivariate_polynomial, fitDistortion, multiEpochAstrometry
 
-import os, sys
-# sys.path.append(os.path.join(home_dir,'jwst/code/pyDistortion'))
-# import pyDistortion
+
+def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma, remove_multiple_matches=True, retain_best_match=False, verbose=0, verbose_figures=False, saveplot=0, out_dir=None, name_seed=None):
+    """
+    Crossmatch two SkyCoord catalogs with RA and Dec fields
+    written 2016-12-22 J. Sahlmann, AURA/STScI
+
+    Parameters
+    ----------
+    primary_cat : SkyCoord catalog
+        primary catalog, the sources in the secondary catalog will be searched for closest match to sources in primary catalog
+    secondary_cat : SkyCoord catalog
+        secondary catalog
+    xmatch_radius : float with astropy angular unit
+        angular radius for the crossmatch
+    rejection_level_sigma : float
+        outlier rejection level in terms of dispersion of the crossmatch distance
+    retain_best_match :
+
+    """
+
+    # find sources in calibCat that are closest to sources in gaiaCat
+    idx_secondaryCat, idx_primaryCat, d2d, d3d = primary_cat.search_around_sky(secondary_cat, xmatch_radius)
+    if len(idx_secondaryCat) == 0:
+        raise RuntimeError('Crossmatch failed, no matches found.')
+
+    if verbose:
+        print('xmatch: %d matches' % len(idx_secondaryCat))
 
 
+    # idx_secondaryCat, idx_primaryCat  ,  d2d, d3d = removeCrossMatchOutliers_search_around_sky( idx_secondaryCat, idx_primaryCat     ,  d2d, d3d , rejection_level_sigma, verbose=verbose)
+    #     idx_secondaryCat, idx_primaryCat  ,  d2d, d3d = removeCrossMatchOutliers_search_around_sky( secondary_cat, primary_cat, idx_secondaryCat, idx_primaryCat     ,  d2d, d3d , rejection_level_sigma, verbose=verbose)
+    if rejection_level_sigma != 0:
+        idx_primaryCat, idx_secondaryCat, d2d, d3d = removeCrossMatchOutliers_search_around_sky(primary_cat,
+                                                                                                secondary_cat,
+                                                                                                idx_primaryCat,
+                                                                                                idx_secondaryCat, d2d,
+                                                                                                d3d,
+                                                                                                rejection_level_sigma,
+                                                                                                verbose=verbose)
+        if verbose:
+            print('xmatch: %d matches (after outlier rejection)' % len(idx_secondaryCat))
+
+    if remove_multiple_matches:
+        idx_secondaryCat, idx_primaryCat, d2d, d3d = cleanMultipleCrossMatches_search_around_sky(idx_secondaryCat,
+                                                                                                 idx_primaryCat, d2d, d3d,
+                                                                                                 retainBestOfMultipleMatches=retain_best_match,
+                                                                                                 verbose=verbose)
+        if verbose:
+            print('xmatch: %d matches (after first multiple match rejection)' % len(idx_secondaryCat))
+        idx_primaryCat, idx_secondaryCat, d2d, d3d = cleanMultipleCrossMatches_search_around_sky(idx_primaryCat,
+                                                                                                 idx_secondaryCat, d2d, d3d,
+                                                                                                 retainBestOfMultipleMatches=retain_best_match,
+                                                                                                 verbose=verbose)
+        if verbose:
+            print('xmatch: %d matches (after second multiple match rejection)' % len(idx_secondaryCat))
+
+    if len(idx_primaryCat) == 0:
+        raise RuntimeError('crossmatch did not return any match')
+
+    if verbose_figures:
+        fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
+        pl.clf()
+        if len(secondary_cat.ra) >= len(primary_cat.ra):
+            primary_catalog_plot_symbol = 'bo'
+            # primary_catalog_plot_mfc = None
+            secondary_catalog_plot_symbol = 'r.'
+
+            # primary_ms = 3
+            primary_zorder = -50
+            secondary_zorder = -40
+
+        else:
+            primary_catalog_plot_symbol = 'bo'
+            secondary_catalog_plot_symbol = 'r.'
+            # primary_ms = 0.5
+            primary_zorder = -50
+            secondary_zorder = -40
+
+        #         pl.plot(primary_cat.ra,primary_cat.dec,'b.',label='primary catalog')
+        #         pl.plot(primary_cat.ra[  idx_primaryCat    ],primary_cat.dec[  idx_primaryCat  ],'b.')
+        pl.plot(secondary_cat.ra, secondary_cat.dec, secondary_catalog_plot_symbol, label='secondary catalog',
+                zorder=secondary_zorder, mfc=None)
+        pl.plot(primary_cat.ra, primary_cat.dec, primary_catalog_plot_symbol, label='primary catalog',
+                zorder=primary_zorder, mfc=None)  # , ms=primary_ms) #,
+        pl.plot(secondary_cat.ra[idx_secondaryCat], secondary_cat.dec[idx_secondaryCat], 'ko', label='xmatch sources',
+                zorder=-20)
+        ax = pl.gca()
+        ax.invert_xaxis()
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        pl.xlabel('RA (deg)')
+        pl.ylabel('Dec (deg)')
+        pl.legend()
+        pl.show()
+        if saveplot == 1:
+            figName = os.path.join(out_dir, '%s_xmatch_onSky.pdf' % name_seed)
+            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+
+    # define quantities for quality check and further processing
+    cosDecFactor = np.cos(np.deg2rad(primary_cat.dec[idx_primaryCat]))
+    diff_raStar = (secondary_cat.ra[idx_secondaryCat] - primary_cat.ra[idx_primaryCat]) * cosDecFactor
+    diff_de = (secondary_cat.dec[idx_secondaryCat] - primary_cat.dec[idx_primaryCat])
+
+    xmatchDistance = d2d.copy().to(u.milliarcsecond)
+
+    # display actual distortion
+    if verbose_figures:
+        X = primary_cat.ra[idx_primaryCat];
+        Y = primary_cat.dec[idx_primaryCat];
+        #         zeroPointIndex = np.where(diff_raStar == np.median(diff_raStar))[0][0]
+        #         zeroPointIndex = np.where(diff_de == np.median(diff_de))[0][0]
+        U0 = diff_raStar;
+        V0 = diff_de;
+        U = U0 - np.median(U0);
+        V = V0 - np.median(V0);
+
+        UV_factor = primary_cat.ra.unit.to(u.milliarcsecond)
+
+        n_bins = np.int(len(xmatchDistance) / 5)
+
+        # xmatch diagnostics
+        pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k');
+        pl.clf();
+        pl.subplot(1, 2, 1)
+        pl.hist(xmatchDistance, n_bins)
+        pl.xlabel('Crossmatch distance (%s)' % (xmatchDistance.unit))
+        pl.subplot(1, 2, 2)
+        pl.hist(U0 * UV_factor, n_bins, color='b', label='X')
+        pl.hist(V0 * UV_factor, n_bins, color='r', alpha=0.5, label='Y')
+        pl.xlabel('Coordinate Difference in X and Y {}'.format(u.milliarcsecond))
+        pl.legend(loc='best')
+        fig.tight_layout(h_pad=0.0)
+        pl.show()
+        if saveplot == 1:
+            figName = os.path.join(out_dir, '%s_xmatch_distance.pdf' % name_seed)
+            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+
+        if 0 == 1:
+            zeroPointIndex = np.where(np.abs(diff_de) == np.median(np.abs(diff_de)))[0][0]
+            U0 = diff_raStar;
+            V0 = diff_de;
+            U = U0 - U0[zeroPointIndex]
+            V = V0 - V0[zeroPointIndex]
+            print('Zeropoint U0 {0:3.1f}'.format(U0[zeroPointIndex].to(u.milliarcsecond)))
+            print('Zeropoint V0 {0:3.1f}'.format(V0[zeroPointIndex].to(u.milliarcsecond)))
+            print('U0 : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(np.min(U0).to(u.milliarcsecond),
+                                                                          np.max(U0).to(u.milliarcsecond),
+                                                                          np.median(U0).to(u.milliarcsecond)))
+            print('V0 : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(np.min(V0).to(u.milliarcsecond),
+                                                                          np.max(V0).to(u.milliarcsecond),
+                                                                          np.median(V0).to(u.milliarcsecond)))
+            print('U  : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(np.min(U).to(u.milliarcsecond),
+                                                                          np.max(U).to(u.milliarcsecond),
+                                                                          np.median(U).to(u.milliarcsecond)))
+            print('V  : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(np.min(V).to(u.milliarcsecond),
+                                                                          np.max(V).to(u.milliarcsecond),
+                                                                          np.median(V).to(u.milliarcsecond)))
+
+            naiveDistanceModulus = np.sqrt(U0 ** 2 + V0 ** 2)
+            DistanceModulus = np.abs(primary_cat[idx_primaryCat].separation(secondary_cat[idx_secondaryCat]))
+
+            print('naiveDistanceModulus  : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(
+                np.min(naiveDistanceModulus).to(u.milliarcsecond), np.max(naiveDistanceModulus).to(u.milliarcsecond),
+                np.median(naiveDistanceModulus).to(u.milliarcsecond)))
+            print('     DistanceModulus  : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(
+                np.min(DistanceModulus).to(u.milliarcsecond), np.max(DistanceModulus).to(u.milliarcsecond),
+                np.median(DistanceModulus).to(u.milliarcsecond)))
+
+            #         DistanceModulus -= np.median(DistanceModulus)
+            #         naiveDistanceModulus = np.sqrt(U0**2+V0**2) - np.median(np.sqrt(U0**2+V0**2))
+
+            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k');
+            pl.clf();
+            pl.hist(U.to(u.milliarcsecond), 100, color='r')
+            pl.hist(V.to(u.milliarcsecond), 100, color='b')
+            pl.show()
+
+            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k');
+            pl.clf();
+            pl.plot(DistanceModulus.to(u.milliarcsecond), naiveDistanceModulus.to(u.milliarcsecond), 'b.')
+            pl.show()
+
+        fig = pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k');
+        pl.clf();
+
+        pl.subplot(1, 2, 1)
+        #         headlength = 10
+        forGaia = 1
+        if forGaia:
+            scale1 = 0.003
+            scale2 = 0.0005
+
+        if forGaia:
+            Q = pl.quiver(X, Y, U0, V0, angles='xy', scale_units='xy', scale=scale1)
+        else:
+            Q = pl.quiver(X, Y, U0, V0, angles='xy', scale_units='xy')
+
+        # Q = pl.quiver(X[::3],Y[::3], U0[::3], V0[::3], angles='xy',units='inches')
+
+
+        gmc_ra = np.mean(pl.xlim())
+        gmc_de = np.mean(pl.ylim())
+        #         cosdec = np.cos(np.deg2rad(gmc_de))
+        size_deg = pl.xlim()[1] - gmc_ra - 0.1
+        #         ra_min = gmc_ra - (size_deg / cosdec)
+        #         ra_max = gmc_ra + (size_deg / cosdec)
+        de_min = gmc_de - size_deg
+        de_max = gmc_de + size_deg
+
+        pl.ylim((de_min, de_max))
+        #         1/0
+        ax = pl.gca()  # ;
+        # pl.axis('equal')
+        ax.invert_xaxis()
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+
+        pl.xlabel('Right Ascension (deg)');
+        pl.ylabel('Declination (deg)');
+        pl.title('Difference between catalog positions')
+
+        pl.subplot(1, 2, 2)
+        if forGaia:
+            Q = pl.quiver(X, Y, U, V, angles='xy', scale_units='xy', scale=scale2)
+        else:
+            Q = pl.quiver(X, Y, U, V, angles='xy', scale_units='xy')
+
+        # Q = pl.quiver(X[::3],Y[::3], U[::3], V[::3], angles='xy',units='inches')
+        pl.ylim((de_min, de_max))
+        ax = pl.gca()  # ;
+        # pl.axis('equal')
+        ax.invert_xaxis()
+        pl.xlabel('Right Ascension (deg)');
+        pl.ylabel('Declination (deg)');
+        pl.title('Average offset subtracted')
+        fig.tight_layout(h_pad=0.0)
+        pl.show()
+
+        if saveplot == 1:
+            figName = os.path.join(out_dir, '%s_xmatch_distortionActual.pdf' % name_seed)
+            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0, dpi=300)
+
+    return idx_primaryCat, idx_secondaryCat, d2d, d3d, diff_raStar, diff_de
 
 
 def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_catalog,
@@ -391,245 +640,3 @@ def removeCrossMatchOutliers_search_around_sky(primaryCat, secondaryCat, index_p
     return index_primary, index_secondary, d2d, d3d
 
 
-def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma, remove_multiple_matches=True, retain_best_match=False, verbose=0, verbose_figures=1, saveplot=0, out_dir=None, name_seed=None):
-    """
-    Crossmatch two SkyCoord catalogs with RA and Dec fields
-    written 2016-12-22 J. Sahlmann, AURA/STScI
-
-    Parameters
-    ----------
-    primary_cat : SkyCoord catalog
-        primary catalog, the sources in the secondary catalog will be searched for closest match to sources in primary catalog
-    secondary_cat : SkyCoord catalog
-        secondary catalog
-    xmatch_radius : float with astropy angular unit
-        angular radius for the crossmatch
-    rejection_level_sigma : float
-        outlier rejection level in terms of dispersion of the crossmatch distance
-    retain_best_match :
-
-    """
-
-    # find sources in calibCat that are closest to sources in gaiaCat
-    idx_secondaryCat, idx_primaryCat, d2d, d3d = primary_cat.search_around_sky(secondary_cat, xmatch_radius)
-    if len(idx_secondaryCat) == 0:
-        raise RuntimeError('Crossmatch failed, no matches found.')
-
-    if verbose:
-        print('xmatch: %d matches' % len(idx_secondaryCat))
-
-
-    # idx_secondaryCat, idx_primaryCat  ,  d2d, d3d = removeCrossMatchOutliers_search_around_sky( idx_secondaryCat, idx_primaryCat     ,  d2d, d3d , rejection_level_sigma, verbose=verbose)
-    #     idx_secondaryCat, idx_primaryCat  ,  d2d, d3d = removeCrossMatchOutliers_search_around_sky( secondary_cat, primary_cat, idx_secondaryCat, idx_primaryCat     ,  d2d, d3d , rejection_level_sigma, verbose=verbose)
-    if rejection_level_sigma != 0:
-        idx_primaryCat, idx_secondaryCat, d2d, d3d = removeCrossMatchOutliers_search_around_sky(primary_cat,
-                                                                                                secondary_cat,
-                                                                                                idx_primaryCat,
-                                                                                                idx_secondaryCat, d2d,
-                                                                                                d3d,
-                                                                                                rejection_level_sigma,
-                                                                                                verbose=verbose)
-        if verbose:
-            print('xmatch: %d matches (after outlier rejection)' % len(idx_secondaryCat))
-
-    if remove_multiple_matches:
-        idx_secondaryCat, idx_primaryCat, d2d, d3d = cleanMultipleCrossMatches_search_around_sky(idx_secondaryCat,
-                                                                                                 idx_primaryCat, d2d, d3d,
-                                                                                                 retainBestOfMultipleMatches=retain_best_match,
-                                                                                                 verbose=verbose)
-        if verbose:
-            print('xmatch: %d matches (after first multiple match rejection)' % len(idx_secondaryCat))
-        idx_primaryCat, idx_secondaryCat, d2d, d3d = cleanMultipleCrossMatches_search_around_sky(idx_primaryCat,
-                                                                                                 idx_secondaryCat, d2d, d3d,
-                                                                                                 retainBestOfMultipleMatches=retain_best_match,
-                                                                                                 verbose=verbose)
-        if verbose:
-            print('xmatch: %d matches (after second multiple match rejection)' % len(idx_secondaryCat))
-
-    if len(idx_primaryCat) == 0:
-        raise RuntimeError('crossmatch did not return any match')
-
-    if verbose_figures:
-        fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
-        pl.clf()
-        if len(secondary_cat.ra) >= len(primary_cat.ra):
-            primary_catalog_plot_symbol = 'bo'
-            # primary_catalog_plot_mfc = None
-            secondary_catalog_plot_symbol = 'r.'
-
-            # primary_ms = 3
-            primary_zorder = -50
-            secondary_zorder = -40
-
-        else:
-            primary_catalog_plot_symbol = 'bo'
-            secondary_catalog_plot_symbol = 'r.'
-            # primary_ms = 0.5
-            primary_zorder = -50
-            secondary_zorder = -40
-
-        #         pl.plot(primary_cat.ra,primary_cat.dec,'b.',label='primary catalog')
-        #         pl.plot(primary_cat.ra[  idx_primaryCat    ],primary_cat.dec[  idx_primaryCat  ],'b.')
-        pl.plot(secondary_cat.ra, secondary_cat.dec, secondary_catalog_plot_symbol, label='secondary catalog',
-                zorder=secondary_zorder, mfc=None)
-        pl.plot(primary_cat.ra, primary_cat.dec, primary_catalog_plot_symbol, label='primary catalog',
-                zorder=primary_zorder, mfc=None)  # , ms=primary_ms) #,
-        pl.plot(secondary_cat.ra[idx_secondaryCat], secondary_cat.dec[idx_secondaryCat], 'ko', label='xmatch sources',
-                zorder=-20)
-        ax = pl.gca()
-        ax.invert_xaxis()
-        ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-        pl.xlabel('RA (deg)')
-        pl.ylabel('Dec (deg)')
-        pl.legend()
-        pl.show()
-        if saveplot == 1:
-            figName = os.path.join(out_dir, '%s_xmatch_onSky.pdf' % name_seed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
-
-    # define quantities for quality check and further processing
-    cosDecFactor = np.cos(np.deg2rad(primary_cat.dec[idx_primaryCat]))
-    diff_raStar = (secondary_cat.ra[idx_secondaryCat] - primary_cat.ra[idx_primaryCat]) * cosDecFactor
-    diff_de = (secondary_cat.dec[idx_secondaryCat] - primary_cat.dec[idx_primaryCat])
-
-    xmatchDistance = d2d.copy().to(u.milliarcsecond)
-
-    # display actual distortion
-    if verbose_figures:
-        X = primary_cat.ra[idx_primaryCat];
-        Y = primary_cat.dec[idx_primaryCat];
-        #         zeroPointIndex = np.where(diff_raStar == np.median(diff_raStar))[0][0]
-        #         zeroPointIndex = np.where(diff_de == np.median(diff_de))[0][0]
-        U0 = diff_raStar;
-        V0 = diff_de;
-        U = U0 - np.median(U0);
-        V = V0 - np.median(V0);
-
-        UV_factor = primary_cat.ra.unit.to(u.milliarcsecond)
-
-        n_bins = np.int(len(xmatchDistance) / 5)
-
-        # xmatch diagnostics
-        pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k');
-        pl.clf();
-        pl.subplot(1, 2, 1)
-        pl.hist(xmatchDistance, n_bins)
-        pl.xlabel('Crossmatch distance (%s)' % (xmatchDistance.unit))
-        pl.subplot(1, 2, 2)
-        pl.hist(U0 * UV_factor, n_bins, color='b', label='X')
-        pl.hist(V0 * UV_factor, n_bins, color='r', alpha=0.5, label='Y')
-        pl.xlabel('Coordinate Difference in X and Y {}'.format(u.milliarcsecond))
-        pl.legend(loc='best')
-        fig.tight_layout(h_pad=0.0)
-        pl.show()
-        if saveplot == 1:
-            figName = os.path.join(out_dir, '%s_xmatch_distance.pdf' % name_seed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
-
-        if 0 == 1:
-            zeroPointIndex = np.where(np.abs(diff_de) == np.median(np.abs(diff_de)))[0][0]
-            U0 = diff_raStar;
-            V0 = diff_de;
-            U = U0 - U0[zeroPointIndex]
-            V = V0 - V0[zeroPointIndex]
-            print('Zeropoint U0 {0:3.1f}'.format(U0[zeroPointIndex].to(u.milliarcsecond)))
-            print('Zeropoint V0 {0:3.1f}'.format(V0[zeroPointIndex].to(u.milliarcsecond)))
-            print('U0 : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(np.min(U0).to(u.milliarcsecond),
-                                                                          np.max(U0).to(u.milliarcsecond),
-                                                                          np.median(U0).to(u.milliarcsecond)))
-            print('V0 : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(np.min(V0).to(u.milliarcsecond),
-                                                                          np.max(V0).to(u.milliarcsecond),
-                                                                          np.median(V0).to(u.milliarcsecond)))
-            print('U  : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(np.min(U).to(u.milliarcsecond),
-                                                                          np.max(U).to(u.milliarcsecond),
-                                                                          np.median(U).to(u.milliarcsecond)))
-            print('V  : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(np.min(V).to(u.milliarcsecond),
-                                                                          np.max(V).to(u.milliarcsecond),
-                                                                          np.median(V).to(u.milliarcsecond)))
-
-            naiveDistanceModulus = np.sqrt(U0 ** 2 + V0 ** 2)
-            DistanceModulus = np.abs(primary_cat[idx_primaryCat].separation(secondary_cat[idx_secondaryCat]))
-
-            print('naiveDistanceModulus  : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(
-                np.min(naiveDistanceModulus).to(u.milliarcsecond), np.max(naiveDistanceModulus).to(u.milliarcsecond),
-                np.median(naiveDistanceModulus).to(u.milliarcsecond)))
-            print('     DistanceModulus  : min {0:3.1f} max {1:3.1f} median {2:3.1f}'.format(
-                np.min(DistanceModulus).to(u.milliarcsecond), np.max(DistanceModulus).to(u.milliarcsecond),
-                np.median(DistanceModulus).to(u.milliarcsecond)))
-
-            #         DistanceModulus -= np.median(DistanceModulus)
-            #         naiveDistanceModulus = np.sqrt(U0**2+V0**2) - np.median(np.sqrt(U0**2+V0**2))
-
-            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k');
-            pl.clf();
-            pl.hist(U.to(u.milliarcsecond), 100, color='r')
-            pl.hist(V.to(u.milliarcsecond), 100, color='b')
-            pl.show()
-
-            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k');
-            pl.clf();
-            pl.plot(DistanceModulus.to(u.milliarcsecond), naiveDistanceModulus.to(u.milliarcsecond), 'b.')
-            pl.show()
-
-        fig = pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k');
-        pl.clf();
-
-        pl.subplot(1, 2, 1)
-        #         headlength = 10
-        forGaia = 1
-        if forGaia:
-            scale1 = 0.003
-            scale2 = 0.0005
-
-        if forGaia:
-            Q = pl.quiver(X, Y, U0, V0, angles='xy', scale_units='xy', scale=scale1)
-        else:
-            Q = pl.quiver(X, Y, U0, V0, angles='xy', scale_units='xy')
-
-        # Q = pl.quiver(X[::3],Y[::3], U0[::3], V0[::3], angles='xy',units='inches')
-
-
-        gmc_ra = np.mean(pl.xlim())
-        gmc_de = np.mean(pl.ylim())
-        #         cosdec = np.cos(np.deg2rad(gmc_de))
-        size_deg = pl.xlim()[1] - gmc_ra - 0.1
-        #         ra_min = gmc_ra - (size_deg / cosdec)
-        #         ra_max = gmc_ra + (size_deg / cosdec)
-        de_min = gmc_de - size_deg
-        de_max = gmc_de + size_deg
-
-        pl.ylim((de_min, de_max))
-        #         1/0
-        ax = pl.gca()  # ;
-        # pl.axis('equal')
-        ax.invert_xaxis()
-        ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-        ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-
-        pl.xlabel('Right Ascension (deg)');
-        pl.ylabel('Declination (deg)');
-        pl.title('Difference between catalog positions')
-
-        pl.subplot(1, 2, 2)
-        if forGaia:
-            Q = pl.quiver(X, Y, U, V, angles='xy', scale_units='xy', scale=scale2)
-        else:
-            Q = pl.quiver(X, Y, U, V, angles='xy', scale_units='xy')
-
-        # Q = pl.quiver(X[::3],Y[::3], U[::3], V[::3], angles='xy',units='inches')
-        pl.ylim((de_min, de_max))
-        ax = pl.gca()  # ;
-        # pl.axis('equal')
-        ax.invert_xaxis()
-        pl.xlabel('Right Ascension (deg)');
-        pl.ylabel('Declination (deg)');
-        pl.title('Average offset subtracted')
-        fig.tight_layout(h_pad=0.0)
-        pl.show()
-
-        if saveplot == 1:
-            figName = os.path.join(out_dir, '%s_xmatch_distortionActual.pdf' % name_seed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0, dpi=300)
-
-    return idx_primaryCat, idx_secondaryCat, d2d, d3d, diff_raStar, diff_de
