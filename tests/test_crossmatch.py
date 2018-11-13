@@ -40,8 +40,8 @@ def generate_catalogs():
     return primary_catalog, secondary_catalog
 
 
-def test_crossmatch():
-    primary_catalog, secondary_catalog = generate_catalogs()
+def test_crossmatch(generate_catalogs):
+    primary_catalog, secondary_catalog = generate_catalogs
     xmatch_radius = 2. * u.arcsecond
     rejection_level_sigma = 3.
     index_primary_catalog, index_secondary_catalog, d2d, d3d, delta_ra_cosdelta, delta_dec = \

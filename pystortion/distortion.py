@@ -27,6 +27,8 @@ import pylab as pl
 from matplotlib.ticker import FormatStrFormatter
 from astropy import units as u
 from astropy.table import Table, Column
+from astropy.table import hstack as tablehstack
+
 from astropy.coordinates import SkyCoord
 import scipy
 import linearfit.linearfit as linearfit
@@ -59,6 +61,25 @@ class multiEpochAstrometry(object):
         self.p = p
         self.colNames = col_names
         self.aux = aux # astropy table
+        self.add_usable_flag()
+        if 'id' in self.colNames:
+            self.star_id_index = self.colNames.tolist().index('id')
+
+    def add_usable_flag(self, mode='default'):
+        """Add weight parameters to the `p` array.
+
+        Parameters
+        ----------
+        mode
+
+        Returns
+        -------
+
+        """
+        if mode == 'default':
+            usable_flag = np.ones(self.p.shape[:2])
+            self.p = np.dstack((self.p, usable_flag))
+            self.colNames = np.hstack((self.colNames, 'usable_flag'))
 
     def set_target_first(self, target_number):
         """
@@ -70,7 +91,7 @@ class multiEpochAstrometry(object):
         """
 
         s = self.reference_star_data(target_number)
-        self.p = np.concatenate((self.p[:, np.where((self.p[0, :, 6] == target_number))[0], :], s), axis=1)
+        self.p = np.concatenate((self.p[:, np.where((self.p[0, :, self.star_id_index] == target_number))[0], :], s), axis=1)
         target_index = 0
         return target_index
 
@@ -82,26 +103,61 @@ class multiEpochAstrometry(object):
         :param target_number:
         :return:
         """
-        s = self.p[:, np.where((self.p[0, :, 6] != target_number))[0], :]
+        s = self.p[:, np.where((self.p[0, :, self.star_id_index] != target_number))[0], :]
         return s
 
     def remove_frames(self, frames_to_remove):
+        """Remove frames that correspond to the index in self.p given by frames_to_remove.
+        """
         a = np.arange(len(self.p))
         good_idx = np.setdiff1d(a, frames_to_remove)
         self.p = self.p[good_idx, :, :]
         self.aux = self.aux[good_idx]
 
+    def remove_star(self, star_id):
+        """Remove a star identified by its id from the data array.
 
-def prepare_multi_epoch_astrometry(star_catalog_matched, gaia_catalog_matched):
+        Parameters
+        ----------
+        star_id : float or int
+
+        """
+        self.p = np.delete(self.p, np.where((self.p[0, :, self.star_id_index] == star_id))[0], 1)
+
+
+
+
+def prepare_multi_epoch_astrometry(star_catalog_matched, reference_catalog_matched, fieldname_dict=None):
     """Return a multiEpochAstrometry object with two catalogs that are populated from the arguments
 
+    # PREPARE DISTORTION FIT
+
     :param star_catalog_matched: astropy table
-    :param gaia_catalog_matched: astropy table
+    :param reference_catalog_matched: astropy table
     :return:
     """
 
-    # PREPARE DISTORTION FIT
-    star_catalog_id_fieldname = 'star_id'
+    if fieldname_dict is None:
+        # dictionary to allow for flexible field/column names
+        fieldname_dict = {}
+        fieldname_dict['star_catalog'] = {}
+        fieldname_dict['reference_catalog'] = {}
+
+        fieldname_dict['reference_catalog']['position_1'] = 'v2_tangent_arcsec'
+        fieldname_dict['reference_catalog']['position_2'] = 'v3_tangent_arcsec'
+        fieldname_dict['reference_catalog']['sigma_position_1'] = 'v2_error_arcsec'
+        fieldname_dict['reference_catalog']['sigma_position_2'] = 'v3_error_arcsec'
+        fieldname_dict['reference_catalog']['identifier'] = 'source_id'
+        fieldname_dict['reference_catalog']['position_unit'] = u.arcsecond
+        fieldname_dict['reference_catalog']['sigma_position_unit'] = u.arcsecond
+
+        fieldname_dict['star_catalog']['position_1'] = 'v2_tangent_arcsec'
+        fieldname_dict['star_catalog']['position_2'] = 'v3_tangent_arcsec'
+        fieldname_dict['star_catalog']['sigma_position_1'] = 'sigma_x_arcsec'
+        fieldname_dict['star_catalog']['sigma_position_2'] = 'sigma_y_arcsec'
+        fieldname_dict['star_catalog']['identifier'] = 'star_id'
+        fieldname_dict['star_catalog']['position_unit'] = u.arcsecond
+        fieldname_dict['star_catalog']['sigma_position_unit'] = u.arcsecond
 
     # number of crossmatched stars
     Nstars = len(star_catalog_matched)
@@ -116,26 +172,44 @@ def prepare_multi_epoch_astrometry(star_catalog_matched, gaia_catalog_matched):
     i_id = np.where(mp.colNames == 'id')[0][0]
     i_oid = np.where(mp.colNames == 'original_id')[0][0]
 
-    gnames = np.array(gaia_catalog_matched['source_id'])
-    hnames = np.array(star_catalog_matched[star_catalog_id_fieldname]).astype(np.int)
+    gnames = np.array(reference_catalog_matched[fieldname_dict['reference_catalog']['identifier']])
+    hnames = np.array(star_catalog_matched[fieldname_dict['star_catalog']['identifier']]).astype(np.int)
     xmatchId = gnames
 
-    # first catalog (instrument)
-    mp.p[0, :, [i_x, i_y, i_sx, i_sy, i_id, i_oid]] = np.vstack((
-                                                                np.array(star_catalog_matched['v2_tangent_arcsec']),
-                                                                np.array(star_catalog_matched['v3_tangent_arcsec']), \
-                                                                np.array(
-                                                                    star_catalog_matched['sigma_x_mas']) / 1000.,
-                                                                np.array(
-                                                                    star_catalog_matched['sigma_y_mas']) / 1000., \
-                                                                xmatchId, hnames))
-    # second catalog (Gaia)
-    mp.p[1, :, [i_x, i_y, i_sx, i_sy, i_id, i_oid]] = np.vstack((
-                                                                np.array(gaia_catalog_matched['v2_tangent_arcsec']),
-                                                                np.array(gaia_catalog_matched['v3_tangent_arcsec']), \
-                                                                np.array(gaia_catalog_matched['ra_error']) / 1000.,
-                                                                np.array(gaia_catalog_matched['dec_error']) / 1000., \
-                                                                xmatchId, gnames))
+
+    for index in [0,1]:
+        if index == 0: # first catalog (instrument)
+            catalog = star_catalog_matched.copy()
+            catalog_name = 'star_catalog'
+            star_names = np.array(catalog[fieldname_dict[catalog_name]['identifier']])
+            xmatchId = star_names.copy()
+        elif index == 1: # second catalog (reference, e.g. Gaia)
+            catalog = reference_catalog_matched.copy()
+            catalog_name = 'reference_catalog'
+            star_names = np.array(catalog[fieldname_dict[catalog_name]['identifier']]).astype(np.int)
+
+        mp.p[index, :, [i_x, i_y, i_sx, i_sy, i_id, i_oid]] = np.vstack((
+            np.array(catalog[fieldname_dict[catalog_name]['position_1']]),
+            np.array(catalog[fieldname_dict[catalog_name]['position_2']]),
+            np.array(catalog[fieldname_dict[catalog_name]['sigma_position_1']]) * fieldname_dict[catalog_name]['sigma_position_unit'].to(fieldname_dict[catalog_name]['position_unit']),
+            np.array(catalog[fieldname_dict[catalog_name]['sigma_position_2']]) * fieldname_dict[catalog_name]['sigma_position_unit'].to(fieldname_dict[catalog_name]['position_unit']),
+            xmatchId, star_names))
+
+    # mp.p[0, :, [i_x, i_y, i_sx, i_sy, i_id, i_oid]] = np.vstack((
+    #                                                             np.array(star_catalog_matched['v2_tangent_arcsec']),
+    #                                                             np.array(star_catalog_matched['v3_tangent_arcsec']), \
+    #                                                             np.array(
+    #                                                                 star_catalog_matched['sigma_x_mas']) / 1000.,
+    #                                                             np.array(
+    #                                                                 star_catalog_matched['sigma_y_mas']) / 1000., \
+    #                                                             xmatchId, hnames))
+    # # second catalog (Gaia)
+    # mp.p[1, :, [i_x, i_y, i_sx, i_sy, i_id, i_oid]] = np.vstack((
+    #                                                             np.array(reference_catalog_matched['v2_tangent_arcsec']),
+    #                                                             np.array(reference_catalog_matched['v3_tangent_arcsec']), \
+    #                                                             np.array(reference_catalog_matched['ra_error']) / 1000.,
+    #                                                             np.array(reference_catalog_matched['dec_error']) / 1000., \
+    #                                                             xmatchId, gnames))
 
     return mp
 
@@ -161,7 +235,7 @@ class lazAstrometryCoefficients(object):
     def __init__(self, k=None, p=None, p_dif=9999, p_red=9999, Alm=9999, rms=9999, C=9999, degree=9999, maxdeg=9999,
                  Nalm=None, resx=None, resy=None, s_Alm_normal=None, s_Alm_formal=None, s_p_red=None,
                  polynomialTermOrder=None, referencePoint=None, useReducedCoordinates=None, refFrameNumber=None,
-                 colNames=None):
+                 colNames=None, data=None):
         # self.name = name
         self.p = p
         self.p_dif = p_dif
@@ -183,11 +257,12 @@ class lazAstrometryCoefficients(object):
         self.useReducedCoordinates = useReducedCoordinates
         self.refFrameNumber = refFrameNumber
         self.colNames = colNames
+        self.data=data
 
-    def displayResults(self, evaluation_frame_number=1, precision=7, scaleFactorForResiduals=1., displayCorrelations=False,
-                       nformat='f'):
+    def display_results(self, evaluation_frame_number=1, precision=7, scale_factor_for_residuals=1., display_correlations=False,
+                        nformat='f'):
 
-        scaleFactor = scaleFactorForResiduals
+        scaleFactor = scale_factor_for_residuals
         names = ['X', 'Y']
         resFields = ['resx', 'resy']
         for i, r in enumerate(resFields):
@@ -195,11 +270,11 @@ class lazAstrometryCoefficients(object):
             eval('self.{0:s}[{1:d}]'.format(r, evaluation_frame_number)).display_results(precision=precision,
                                                                                  scale_factor=scaleFactor,
                                                                                  nformat=nformat)
-            if displayCorrelations:
+            if display_correlations:
                 eval('self.{0:s}[{1:d}]'.format(r, evaluation_frame_number)).display_correlations()
 
-        print('RMS  in X and Y: {0:f}  and  {1:f}'.format(self.rms[evaluation_frame_number][0] * scaleFactorForResiduals,
-                                                          self.rms[evaluation_frame_number][1] * scaleFactorForResiduals))
+        print('RMS  in X and Y: {0:f}  and  {1:f}'.format(self.rms[evaluation_frame_number][0] * scale_factor_for_residuals,
+                                                          self.rms[evaluation_frame_number][1] * scale_factor_for_residuals))
         print('        chi2 in X and Y: {0:f}  and  {1:f}'.format(self.resx[evaluation_frame_number].chi2,
                                                                   self.resy[evaluation_frame_number].chi2))
         print('reduced chi2 in X and Y: {0:f}  and  {1:f}'.format(
@@ -213,17 +288,53 @@ class lazAstrometryCoefficients(object):
                                                                           scaleFactor=scaleFactor, nformat=nformat)
 
     def plotResiduals(self, evaluation_frame_number, outDir, nameSeed, omc_scale=1., save_plot=1, omc_unit='undefined',
-                      xy_unit='undefined', xy_scale=1., title=None, verbose=False, **kwargs):
-        #         nameSeed += '_k%d' % self.k
+                      xy_unit='undefined', xy_scale=1., title=None, verbose=False, target_number=None, plot_correlations=False, **kwargs):
+        """
+
+        2018-08-13 add target_index argument to exlude target residuals from plotting
+
+        Parameters
+        ----------
+        evaluation_frame_number
+        outDir
+        nameSeed
+        omc_scale
+        save_plot
+        omc_unit
+        xy_unit
+        xy_scale
+        title
+        verbose
+        target_index
+
+        Returns
+        -------
+
+        """
+
 
         ii = evaluation_frame_number
         ix = np.where(self.colNames == 'x')[0][0]
         iy = np.where(self.colNames == 'y')[0][0]
+        i_id = np.where(self.colNames == 'id')[0][0]
+
+        # plot only non-artifical measurements as those are used to constrain the fit
+        plot_index = np.arange(len(self.resx[ii].residuals))
+        if 'artificial' in self.colNames:
+            i_artificial = np.where(self.colNames == 'artificial')[0][0]
+            plot_index = np.where(self.p[ii, :, i_artificial] == 0)[0]
+
+        # reomve target from plotting index
+        if target_number is not None:
+            target_number_index = list(self.p[0, :, i_id]).index(target_number)
+            if (target_number_index is not None) and (target_number_index in plot_index):
+                plot_index = np.delete(plot_index, np.where(plot_index==target_number_index)[0])
+
         xlabl = 'X (%s)' % xy_unit
         ylabl = 'Y (%s)' % xy_unit
 
-        U = self.resx[ii].residuals * omc_scale
-        V = self.resy[ii].residuals * omc_scale
+        U = self.resx[ii].residuals[plot_index] * omc_scale
+        V = self.resy[ii].residuals[plot_index] * omc_scale
 
         if verbose:
             print('maximum residual amplitude %3.3f ' % (np.max(np.sqrt(U ** 2 + V ** 2))))
@@ -236,7 +347,10 @@ class lazAstrometryCoefficients(object):
         # plot residuals on sky
         fig = pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
         pl.clf()
-        xy = np.ma.masked_array(self.p[ii, :, [ix, iy]], mask=[self.p[ii, :, [ix, iy]] == 0]) * xy_scale
+        # xy = np.ma.masked_array(self.p[ii, :, [ix, iy]], mask=[self.p[ii, :, [ix, iy]] == 0]) * xy_scale
+        xy = np.ma.masked_array(self.p[ii, plot_index, np.array([ix, iy])[:, np.newaxis]], mask=[self.p[ii, plot_index, np.array([ix, iy])[:, np.newaxis]] == 0]) * xy_scale
+        # xy = self.p[ii, plot_index, [ix, iy]] * xy_scale
+        # xy = self.p[ii, plot_index, [ix, iy]] * xy_scale
 
         pl.quiver(xy[0], xy[1], U, V, angles='xy')
         pl.axis('equal')
@@ -288,13 +402,13 @@ class lazAstrometryCoefficients(object):
         fig = pl.figure(figsize=(10, 5), facecolor='w', edgecolor='k')
         pl.clf()
         pl.subplot(1, 2, 1)
-        pl.plot(xy[0], self.resx[ii].residuals * omc_scale, 'b.')
+        pl.plot(xy[0], self.resx[ii].residuals[plot_index] * omc_scale, 'b.')
         pl.xlabel('X (%s)' % xy_unit)
         pl.ylabel('Residuals in X (%s)' % omc_unit)
         if title is not None:
             pl.title(title)
         pl.subplot(1, 2, 2)
-        pl.plot(xy[1], self.resy[ii].residuals * omc_scale, 'r.')
+        pl.plot(xy[1], self.resy[ii].residuals[plot_index] * omc_scale, 'r.')
         pl.xlabel('Y (%s)' % xy_unit)
         pl.ylabel('Residuals in Y (%s)' % omc_unit)
         fig.tight_layout(h_pad=0.0)
@@ -302,6 +416,34 @@ class lazAstrometryCoefficients(object):
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_distortionResidualsVsRADec.pdf' % nameSeed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+
+        if plot_correlations:
+            fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
+            pl.clf()
+            pl.plot(U, V, 'bo', label='X')
+            pl.title('Distortion Residuals X vs Y')
+            pl.ylabel('Residual O-C Y ({})'.format(omc_unit))
+            pl.xlabel('Residual O-C X ({})'.format(omc_unit))
+            pl.show()
+
+            for name in self.colNames:
+                # if name in 'x y CHIP_EXTENSION'.split():
+                if name not in 'MAG sigma_x sigma_y'.split():
+                    continue
+            #         'MAG', 'FLAGS_EXTRACTION', 'x', 'y', 'index', 'sigma_world', 'id',
+            # 'CHIP_EXTENSION', 'sigma_x', 'sigma_y', 'CATALOG_NUMBER',
+            # 'artificial', 'usable_flag'
+                p_index = np.where(self.colNames == name)[0][0]
+                fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
+                pl.clf()
+                pl.plot(self.p[ii, plot_index, p_index], U, 'b.', label='X')
+                pl.plot(self.p[ii, plot_index, p_index], V, 'r.', label='Y')
+                pl.title('Distortion Residuals vs {}'.format(name))
+                pl.xlabel(name)
+                pl.ylabel('Residual O-C ({})'.format(omc_unit))
+                pl.show()
+
+
 
     def plotResults(self, evaluation_frame_number, outDir, nameSeed, saveplot=1, xy_unit='undefined', xy_scale=1.):
         Nframes, Nstars, Nfields = self.p.shape
@@ -925,8 +1067,9 @@ class lazAstrometryCoefficients(object):
         return polynomial
 
     def apply_polynomial_transformation(self, evaluation_frame_number, partial_mode, xx, yy, includeAllHigherOrders=False):
-        """
-        apply the polynomial model defined by the coefficients stored in self.Alm to the input coordinates xx,yy
+        """Apply the polynomial model defined by the coefficients stored in self.Alm to the input coordinates xx,yy
+
+        Attention when using reduced coordinates!
 
         :param evaluation_frame_number:
         :param partial_mode:
@@ -952,8 +1095,6 @@ class lazAstrometryCoefficients(object):
         wfunc_x = lambdify((x, y), func_x, 'numpy')
         wfunc_y = lambdify((x, y), func_y, 'numpy')
 
-        #         print(wfunc_x(xx,yy).shape)
-
         if len(wfunc_x(xx, yy).shape) == 4:
             return_values = wfunc_x(xx, yy)[0][0], wfunc_y(xx, yy)[0][0]
         elif len(wfunc_x(xx, yy).shape) == 3:
@@ -964,6 +1105,7 @@ class lazAstrometryCoefficients(object):
             return_values = ret_x, ret_y
 
         return return_values
+
 
     def plotDistortion(self, evaluation_frame_number, outDir, nameSeed, referencePointForProjection_Pix, save_plot=1,
                        xy_unit='undefined', xy_scale=1., detailed_plot_k=8):
@@ -1116,6 +1258,72 @@ class lazAstrometryCoefficients(object):
         return ra_corr, dec_corr
 
 
+    def identify_poorly_behaved_stars(self, exclude_target=True, absolute_threshold=10, show_plot=False):
+        """Return list of stars that violate quality criteria in terms of residual amplitude after the distortion fit.
+
+        Returns
+        -------
+
+        """
+        number_of_frames = self.Alm.shape[0]
+        # number_of_stars = len(self.resx[0].residuals)
+        number_of_stars = self.p.shape[1]
+        coord = np.arange(number_of_frames)
+
+        bad_star_index = []
+
+        if show_plot:
+            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+            pl.clf()
+        for j in np.arange(number_of_stars):
+            if (j == 0) & (exclude_target):  # skip target
+                continue
+            index = np.where(self.p[:, j, self.colNames.tolist().index('artificial')] == 0)[0]
+            residuals_x = np.array([self.resx[i].residuals[j] for i in range(number_of_frames)])
+            residuals_y = np.array([self.resy[i].residuals[j] for i in range(number_of_frames)])
+            # if (np.abs(np.mean(residuals_x[index])) > threshold) or (np.abs(np.mean(residuals_y[index])) > threshold):
+            if (np.any(np.abs(residuals_x[index]) > absolute_threshold)) or (np.any(np.abs(residuals_y[index]) > absolute_threshold)):
+                bad_star_index.append(j)
+                continue
+            if show_plot:
+                pl.subplot(2, 1, 1)
+                pl.plot(coord[index], residuals_x[index])
+                pl.subplot(2, 1, 2)
+                pl.plot(coord[index], residuals_y[index])
+        if show_plot:
+            pl.xlabel('Frame number')
+            pl.subplot(2, 1, 1)
+            pl.title('Distortion-fit residuals of {} well-behaved stars (|O-C|<{:2.2f})'.format(number_of_stars-len(bad_star_index), absolute_threshold))
+            pl.show()
+
+        # plot RMS
+        if 0:
+            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+            pl.clf()
+
+            for i in np.arange(number_of_frames):
+                index = np.where(self.p[i, :, self.colNames.tolist().index('artificial')] == 0)[0]
+                # 1/0
+                index = index[index!=0]
+                # index = np.append(index, 0) # exclude target
+                # residuals_x = np.array(self.resx[i].residuals)
+                # residuals_y = np.array(self.resy[i].residuals)
+                residuals_y = np.array([self.resy[i].residuals[j] for j in index])
+                residuals_x = np.array([self.resx[i].residuals[j] for j in index])
+                # residuals_y = np.array([self.resy[i].residuals[j] for j in range(number_of_stars)])
+                pl.subplot(2,1,1)
+                # pl.plot(i, np.std(residuals_x[index]), 'bo')
+                pl.plot(i, np.std(residuals_x), 'bo')
+                pl.subplot(2,1,2)
+                pl.plot(i, np.std(residuals_y), 'ro')
+                # pl.plot(i, np.std(residuals_y[index]), 'ro')
+            pl.xlabel('Frame number')
+            pl.show()
+
+
+        return bad_star_index
+
+
 # def RADec2Pix_TAN(RA, Dec, RA_ref, Dec_ref, scale=1.):
 #     """
 #     The arguments RA,Dec,RA_ref,Dec_ref are all in decimal degrees. Scale is a convenience parameter that should default to 1.0
@@ -1233,6 +1441,142 @@ def getCleanedAstrometricData(mp, s, targetId):
     targetIndex = 0
     return mp, targetIndex
 
+
+
+def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, save_plot=False, reference_frame_index=None, name_seed='', plot_dir=''):
+    """Make figures that show the evolution of the distortion fits stored in lazAC.
+
+    Parameters
+    ----------
+    lazAC
+    epoch_boundaries
+
+    Returns
+    -------
+
+    """
+    # show_plot = True
+
+    coord = np.arange(lazAC.Alm.shape[0])
+    values = False
+    for exposure_number in range(lazAC.Alm.shape[0]):
+        human_readable_solution_parameters = \
+            compute_rot_scale_skew(lazAC, i=exposure_number)
+
+        if values is False:
+            values = human_readable_solution_parameters['values'][:, 0]
+            uncert = human_readable_solution_parameters['values'][:, 1]
+        else:
+            values = np.vstack(
+                (values, human_readable_solution_parameters['values'][:, 0]))
+            uncert = np.vstack(
+                (uncert, human_readable_solution_parameters['values'][:, 1]))
+
+        val = Table(values, names=human_readable_solution_parameters['names'])
+        unc = Table(uncert, names=['sigma_{}'.format(s) for s in
+                                   human_readable_solution_parameters['names']])
+
+    T = tablehstack((val, unc))
+
+    if lazAC.useReducedCoordinates == 0:
+        parameters_to_plot = ['Shift in X', 'Shift in Y', 'Global Rotation', 'Global Scale', 'On-axis Skew', 'Off-axis Skew']
+        row_width = 7
+        column_width = 2
+    else:
+        parameters_to_plot = human_readable_solution_parameters['names']
+        row_width = 3
+        column_width = 3
+    n_panels = len(parameters_to_plot)
+    n_figure_columns = 3
+    n_figure_rows = np.int(np.ceil(n_panels / n_figure_columns))
+
+
+    if show_plot and 1:
+        fig, axes = pl.subplots(n_figure_rows, n_figure_columns,
+                                figsize=(n_figure_rows * row_width, n_figure_columns * column_width),
+                                facecolor='w', edgecolor='k', sharex=True, sharey=False,
+                                squeeze=False)
+        # axes_max = 0
+        for jj, name in enumerate(parameters_to_plot):
+            fig_row = jj % n_figure_rows
+            fig_col = jj // n_figure_rows
+
+            # fig_col = np.int(np.floor(jj/n_figure_columns))
+            # fig_row = np.int(jj%n_figure_columns)
+
+            axes[fig_row][fig_col].plot(coord, T[name], 'bo')
+            axes[fig_row][fig_col].errorbar(coord, T[name],
+                                            yerr=T['sigma_{}'.format(name)],
+                                            fmt='none', ecolor='b')
+            # axes[fig_row][fig_col].plot(coord[reference_index], T[name][
+            # reference_index], 'go')
+            if reference_frame_index is not None:
+                axes[fig_row][fig_col].plot(coord[reference_frame_index],
+                                            T[name][reference_frame_index], 'yo', color='0.5', ms=10)
+
+            # axes[fig_row][fig_col].set_title(name)
+            if fig_row == n_figure_rows - 1:
+                axes[fig_row][fig_col].set_xlabel('Frame number')
+            axes[fig_row][fig_col].set_ylabel(name)
+
+            if epoch_boundaries is not None:
+                for boundary in epoch_boundaries:
+                    axes[fig_row][fig_col].axvline(boundary, color='0.7', ls='--')
+
+            if name == 'Global Scale':
+                axes[fig_row][fig_col].axhline(1, ls='--', c='0.7')
+            else:
+                axes[fig_row][fig_col].axhline(0, ls='--', c='0.7')
+
+        fig.tight_layout(h_pad=0.0)
+        pl.show()
+
+        if save_plot:
+            figure_name = os.path.join(plot_dir, '{}_distortion_parameters_per_frame.pdf'.format(name_seed))
+            pl.savefig(figure_name, transparent=True, bbox_inches='tight', pad_inches=0)
+
+    distortion_statistics = Table()
+    distortion_statistics['rms_x'] = lazAC.rms[:, 0]
+    distortion_statistics['rms_y'] = lazAC.rms[:, 1]
+    distortion_statistics['n_stars'] = [lazAC.data[m]['number_of_stars_with_non_zero_weight'] for m in lazAC.data.keys()]
+
+    n_panels = len(distortion_statistics.colnames)
+    n_figure_columns = 1
+    n_figure_rows = np.int(np.ceil(n_panels / n_figure_columns))
+
+    if show_plot:
+        fig, axes = pl.subplots(n_figure_rows, n_figure_columns,
+                                figsize=(n_figure_columns * 10, n_figure_rows * 2),
+                                facecolor='w', edgecolor='k', sharex=True, sharey=False,
+                                squeeze=False)
+        # axes_max = 0
+        for jj, name in enumerate(distortion_statistics.colnames):
+            fig_row = jj % n_figure_rows
+            fig_col = jj // n_figure_rows
+
+            # fig_col = np.int(np.floor(jj/n_figure_columns))
+            # fig_row = np.int(jj%n_figure_columns)
+
+            axes[fig_row][fig_col].plot(coord, distortion_statistics[name], 'bo')
+            if reference_frame_index is not None:
+                axes[fig_row][fig_col].plot(coord[reference_frame_index],
+                                            distortion_statistics[name][reference_frame_index], 'yo', c='0.7', ms=10)
+
+            if fig_row == n_figure_rows - 1:
+                axes[fig_row][fig_col].set_xlabel('Frame number')
+            axes[fig_row][fig_col].set_ylabel(name)
+
+            if epoch_boundaries is not None:
+                for boundary in epoch_boundaries:
+                    axes[fig_row][fig_col].axvline(boundary, color='0.7', ls='--')
+
+        fig.tight_layout(h_pad=0.0)
+        pl.show()
+        if save_plot:
+            figure_name = os.path.join(plot_dir,
+                                       '{}_distortion_residualrms_per_frame.pdf'.format(name_seed))
+            pl.savefig(figure_name, transparent=True, bbox_inches='tight', pad_inches=0)
+        # 1/0
 
 ########################################################################################
 ########################################################################################
@@ -1357,7 +1701,7 @@ def fitPolynomialWithUncertaintyInXandY(LHS, ximinusx0, yiminusy0, uncertainty_X
 ########################################################################################
 
 
-def getLazAstrometryCoefficientsFlexible(mp, k, reference_frame_number, targetIndex=None, referencePoint=None,
+def getLazAstrometryCoefficientsFlexible(mp_input, k, reference_frame_number, targetIndex=None, referencePoint=None,
                                          usePositionUncertainties=0, maxdeg=None, useReducedCoordinates=1,
                                          considerUncertaintiesInXandY=0, verbose=0, masked_stars=None):
     """
@@ -1381,6 +1725,10 @@ def getLazAstrometryCoefficientsFlexible(mp, k, reference_frame_number, targetIn
     :param masked_stars:
     :return:
     """
+
+    # to avoid unintended side effects
+    mp = copy.deepcopy(mp_input)
+
     #     masked_stars is an array of indices in p that will not be considered in the fit
     if masked_stars is not None:
         if verbose:
@@ -1484,6 +1832,9 @@ def getLazAstrometryCoefficientsFlexible(mp, k, reference_frame_number, targetIn
 
     # get all the polynomial terms up to power k/2 - 1
     C, polynomialTermOrder = bivariate_polynomial(ximinusx0, yiminusy0, k, verbose=verbose)
+
+    data = {}
+
     for m in range(Nframes):
 
         # left hand side of matrix equation (Thesis Eq.4.18)
@@ -1498,25 +1849,46 @@ def getLazAstrometryCoefficientsFlexible(mp, k, reference_frame_number, targetIn
             uncertainty_x = onesvec
             uncertainty_y = onesvec
 
-        if (np.any(uncertainty_x == 0)) | (np.any(uncertainty_y == 0)):
-            raise RuntimeError('Uncertainty is zero, weight is infinity')
+        # if (np.any(uncertainty_x == 0)) | (np.any(uncertainty_y == 0)):
+        #     raise RuntimeError('Uncertainty is zero, weight is infinity')
 
-        # weights to use in linear fit
-        weight_x = 1. / np.power(uncertainty_x, 2)
-        weight_y = 1. / np.power(uncertainty_y, 2)
+
+        # set weights to use in linear fit
+        if 'artificial' in mp.colNames:
+            weight_x = np.zeros(len(uncertainty_x))
+            weight_y = np.zeros(len(uncertainty_y))
+
+            artificial_star = mp.p[m, :, mp.colNames.tolist().index('artificial')]
+            measured_star_index = artificial_star==0
+            artificial_star_index = artificial_star==1
+
+            weight_x[artificial_star_index] = 0
+            weight_y[artificial_star_index] = 0
+            weight_x[measured_star_index] = 1. / np.power(uncertainty_x[measured_star_index], 2)
+            weight_y[measured_star_index] = 1. / np.power(uncertainty_y[measured_star_index], 2)
+        else:
+            weight_x = 1. / np.power(uncertainty_x, 2)
+            weight_y = 1. / np.power(uncertainty_y, 2)
 
         # if a target is used as reference point, set its weight to zero (target is first element in mp.p)
         if targetIndex is not None:
-            weight_x[0] = 0
-            weight_y[0] = 0
+            weight_x[targetIndex] = 0
+            weight_y[targetIndex] = 0
+
+        if (np.any(np.isinf(weight_x)) | np.any(np.isinf(weight_y))):
+            raise RuntimeError('Weight is infinity')
+
 
         # perform the linear fit, yielding the polynomial coefficients
         # the matrix equation has as many rows as reference stars and represents a k/2-1 polynomial
         # linearfit is always needed to provide initial parameters for kmpfit
         resx = linearfit.LinearFit(LHSx, np.diag(weight_x), C)
         resy = linearfit.LinearFit(LHSy, np.diag(weight_y), C)
-        resx.fit()
-        resy.fit()
+        try:
+            resx.fit()
+            resy.fit()
+        except np.linalg.LinAlgError:
+            1/0
 
         if considerUncertaintiesInXandY == 1:
             # uncertainty in left hand side of equation (Y in a linear fit)
@@ -1537,7 +1909,7 @@ def getLazAstrometryCoefficientsFlexible(mp, k, reference_frame_number, targetIn
                                                        uncertainty_LHS_y, initialParameters_y, axis='y',
                                                        verbose=verbose)
 
-        if 1 == 0:
+        if 0:
             #         if m!=reference_frame_number:
             1 / 0
             resx.displayResults(precision=10)
@@ -1565,20 +1937,27 @@ def getLazAstrometryCoefficientsFlexible(mp, k, reference_frame_number, targetIn
         s_Alm_formal[m, :] = np.concatenate((resx.p_formal_uncertainty, resy.p_formal_uncertainty)).T
 
         # RMS dispersion of the fit
-        rmsx = resx.residuals.std()
-        rmsy = resy.residuals.std()
+        # rmsx = resx.residuals.std()
+        # rmsy = resy.residuals.std()
+        rmsx = resx.residuals[weight_x!=0].std()
+        rmsy = resy.residuals[weight_y!=0].std()
 
         # store the results and the rms
         sresx[m] = resx
         sresy[m] = resy
         rms[m, :] = np.array([rmsx, rmsy])
 
+        data[m] = {}
+        data[m]['weight_x'] = weight_x
+        data[m]['weight_y'] = weight_y
+        data[m]['number_of_stars_with_non_zero_weight'] = len(np.where(weight_x!=0)[0])
+
     # return object
     return lazAstrometryCoefficients(k=k, p=p, p_dif=p_dif, p_red=p_red, Alm=Alm, s_Alm_normal=s_Alm_normal,
                                      s_Alm_formal=s_Alm_formal, rms=rms, C=C, Nalm=Nalm, resx=sresx, resy=sresy,
                                      s_p_red=s_p_red, polynomialTermOrder=polynomialTermOrder,
                                      referencePoint=referencePoint, useReducedCoordinates=useReducedCoordinates,
-                                     refFrameNumber=reference_frame_number, colNames=mp.colNames)
+                                     refFrameNumber=reference_frame_number, colNames=mp.colNames, data=data)
 
 
 def computeScaleFromPolyCoeff(pc1, pc2):
@@ -2189,7 +2568,7 @@ def testDistortionFit():
     lazAC = fitDistortion(mp, k, reference_frame_number=refFrameNumber, reference_point=referencePoint,
                           use_position_uncertainties=usePositionUncertainties,
                           use_reduced_coordinates=useReducedCoordinates)
-    lazAC.displayResults(scaleFactorForResiduals=1.)
+    lazAC.display_results(scale_factor_for_residuals=1.)
     lazAC.plotResiduals(evaluation_frame_number, outDir, nameSeed, omc_scale=1., save_plot=saveplot, omc_unit='mas')
     lazAC.plotResults(evaluation_frame_number, outDir, nameSeed, saveplot=saveplot)
 
@@ -2313,13 +2692,13 @@ def testDistortionFitLMC():
                           reference_point=referencePoint, use_position_uncertainties=usePositionUncertainties,
                           use_reduced_coordinates=useReducedCoordinates,
                           consider_uncertainties_in_XY=considerUncertaintiesInXandY)
-    lazAC.displayResults(evaluation_frame_number=evaluation_frame_number, scaleFactorForResiduals=1., displayCorrelations=0)
+    lazAC.display_results(evaluation_frame_number=evaluation_frame_number, scale_factor_for_residuals=1., display_correlations=0)
     considerUncertaintiesInXandY = 1
     lazAC_2 = fitDistortion(mp, k, reference_frame_number=refFrameNumber, evaluation_frame_number=evaluation_frame_number,
                             reference_point=referencePoint, use_position_uncertainties=usePositionUncertainties,
                             use_reduced_coordinates=useReducedCoordinates,
                             consider_uncertainties_in_XY=considerUncertaintiesInXandY)
-    lazAC_2.displayResults(evaluation_frame_number=evaluation_frame_number, scaleFactorForResiduals=1., displayCorrelations=0)
+    lazAC_2.display_results(evaluation_frame_number=evaluation_frame_number, scale_factor_for_residuals=1., display_correlations=0)
 
     xy_unit = u.arcmin
     xy_scale = u.milliarcsecond.to(xy_unit)

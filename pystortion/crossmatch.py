@@ -26,7 +26,7 @@ from .projection import Pix2RADec_TAN, RADec2Pix_TAN
 from .distortion import bivariate_polynomial, fitDistortion, multiEpochAstrometry
 
 
-def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma, remove_multiple_matches=True, retain_best_match=False, verbose=0, verbose_figures=False, saveplot=0, out_dir=None, name_seed=None):
+def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0, remove_multiple_matches=True, retain_best_match=False, verbose=False, verbose_figures=False, saveplot=False, out_dir=None, name_seed=None):
     """
     Crossmatch two SkyCoord catalogs with RA and Dec fields
     written 2016-12-22 J. Sahlmann, AURA/STScI
@@ -108,8 +108,8 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma, rem
         pl.plot(secondary_cat.ra, secondary_cat.dec, secondary_catalog_plot_symbol, label='secondary catalog',
                 zorder=secondary_zorder, mfc=None)
         pl.plot(primary_cat.ra, primary_cat.dec, primary_catalog_plot_symbol, label='primary catalog',
-                zorder=primary_zorder, mfc=None)  # , ms=primary_ms) #,
-        pl.plot(secondary_cat.ra[idx_secondaryCat], secondary_cat.dec[idx_secondaryCat], 'ko', label='xmatch sources',
+                zorder=primary_zorder, mfc='none', ms=10, mew=2)  # , ms=primary_ms) #,
+        pl.plot(secondary_cat.ra[idx_secondaryCat], secondary_cat.dec[idx_secondaryCat], 'kx', label='xmatch sources',
                 zorder=-20)
         ax = pl.gca()
         ax.invert_xaxis()
@@ -119,7 +119,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma, rem
         pl.ylabel('Dec (deg)')
         pl.legend()
         pl.show()
-        if saveplot == 1:
+        if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_onSky.pdf' % name_seed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
 
@@ -136,29 +136,28 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma, rem
         Y = primary_cat.dec[idx_primaryCat];
         #         zeroPointIndex = np.where(diff_raStar == np.median(diff_raStar))[0][0]
         #         zeroPointIndex = np.where(diff_de == np.median(diff_de))[0][0]
-        U0 = diff_raStar;
-        V0 = diff_de;
-        U = U0 - np.median(U0);
-        V = V0 - np.median(V0);
+        U0 = diff_raStar
+        V0 = diff_de
+        U = U0 - np.median(U0)
+        V = V0 - np.median(V0)
 
         UV_factor = primary_cat.ra.unit.to(u.milliarcsecond)
 
         n_bins = np.int(len(xmatchDistance) / 5)
 
         # xmatch diagnostics
-        pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k');
-        pl.clf();
+        pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k'); pl.clf()
         pl.subplot(1, 2, 1)
-        pl.hist(xmatchDistance, n_bins)
+        pl.hist(xmatchDistance.value, n_bins)
         pl.xlabel('Crossmatch distance (%s)' % (xmatchDistance.unit))
         pl.subplot(1, 2, 2)
-        pl.hist(U0 * UV_factor, n_bins, color='b', label='X')
-        pl.hist(V0 * UV_factor, n_bins, color='r', alpha=0.5, label='Y')
+        pl.hist(U0.value * UV_factor, n_bins, color='b', label='X')
+        pl.hist(V0.value * UV_factor, n_bins, color='r', alpha=0.5, label='Y')
         pl.xlabel('Coordinate Difference in X and Y {}'.format(u.milliarcsecond))
         pl.legend(loc='best')
         fig.tight_layout(h_pad=0.0)
         pl.show()
-        if saveplot == 1:
+        if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_distance.pdf' % name_seed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
 
@@ -263,7 +262,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma, rem
         fig.tight_layout(h_pad=0.0)
         pl.show()
 
-        if saveplot == 1:
+        if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_distortionActual.pdf' % name_seed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0, dpi=300)
 
@@ -335,14 +334,19 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
     reference_catalog_x, reference_catalog_y = RADec2Pix_TAN(reference_catalog.ra.to(u.deg),
                                                              reference_catalog.dec.to(u.deg),
                                                              reference_point_for_projection.ra,
-                                                             reference_point_for_projection.dec, scale);
+                                                             reference_point_for_projection.dec, scale)
 
     #####################################
     # loop to iteratively apply the distortion solution and re-crossmatch the catalog (original x,y coordinates should remain untouched though!)
     # loop that refines the x and y position based on the current iteration's distortion model
-    iteration_verbose = 0
-    iteration_verbose_figures = 0
+    iteration_verbose = True
+    iteration_verbose_figures = True
+    iteration_verbose = False
+    iteration_verbose_figures = False
     iteration_saveplot = save_plot
+
+    xmatch_radius_reducer = True
+    xmatch_radius_reducer = False
 
     iteration_number = 0
     for j in np.arange(max_iterations):
@@ -352,13 +356,17 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
         if iteration_number == 0:
             xmatch_radius = initial_crossmatch_radius
         elif iteration_number > n_interation_switch:
-            # adaptive xmatch radius as function of fit residuals
-            xmatch_radius = adaptive_xmatch_radius_factor * np.mean(lazAC.rms[1, :] * scale_factor_for_residuals) / 1000. * u.arcsec
-            if xmatch_radius > initial_crossmatch_radius:
-                xmatch_radius = initial_crossmatch_radius
+            if xmatch_radius_reducer:
+                xmatch_radius = xmatch_radius/2.
+            else:
+                # adaptive xmatch radius as function of fit residuals
+                xmatch_radius = adaptive_xmatch_radius_factor * np.mean(lazAC.rms[1, :] * scale_factor_for_residuals) / 1000. * u.arcsec
+                if xmatch_radius > initial_crossmatch_radius:
+                    xmatch_radius = initial_crossmatch_radius
         else:
             xmatch_radius = initial_crossmatch_radius
-        if iteration_verbose:
+        # if iteration_verbose:
+        if verbose:
             print('Using xmatch radius of {}'.format(xmatch_radius))
 
         # if iteration_number <= n_interation_switch:
@@ -399,7 +407,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
             # apply the distortion model to the initial x-y coordinates to improve the xmatch, increase the number of sources
 
             if verbose:
-                print('Polynomial fit residuals of previous iteration: %3.3e native = %3.3f mas' % (np.mean(lazAC.rms[1, :]), np.mean(lazAC.rms[1, :] * scale_factor_for_residuals)))
+                print('Polynomial fit residuals of previous iteration: %3.3e native = %3.3f mas (offsets %3.3f / %3.3f)' % (np.mean(lazAC.rms[1, :]), np.mean(lazAC.rms[1, :]) * scale_factor_for_residuals, lazAC.Alm[evaluation_frame_number][0], lazAC.Alm[evaluation_frame_number][lazAC.Nalm]))
 
             if 0:
                 # pl.close('all')
@@ -425,6 +433,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
                 source_catalog_y_corr = PHIy
             else:
                 source_catalog_x_corr, source_catalog_y_corr = lazAC.apply_polynomial_transformation(evaluation_frame_number, 0, source_catalog_x, source_catalog_y)
+                # 1/0
                 # pl.figure()
                 # pl.plot(source_catalog_x_corr, source_catalog_y_corr, 'bo')
                 # pl.plot(source_catalog_x, source_catalog_y, 'ko', mfc=None)
@@ -464,15 +473,16 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
                                                                                            out_dir=out_dir,
                                                                                            name_seed=iteration_name_seed)
             pickle.dump((index_source_cat, index_reference_cat, d2d, d3d, diff_raStar, diff_de), open(pickle_file, "wb"))
-            if verbose:
-                print("Wrote pickled file  %s" % pickle_file)
+            # if verbose:
+            #     print("Wrote pickled file  %s" % pickle_file)
         else:
             index_source_cat, index_reference_cat, d2d, d3d, diff_raStar, diff_de = pickle.load(open(pickle_file, "rb"))
             if verbose:
                 print("Loaded pickled file  %s" % pickle_file);
 
-        if iteration_verbose:
-            print('{} cross-matched sources'.format(len(index_source_cat)))
+        # if iteration_verbose:
+        if verbose:
+            print('{} cross-matched sources (mean xmatch distance in RA / Dec {:3.3f} / {:3.3f})'.format(len(index_source_cat), np.mean(diff_raStar).to(u.milliarcsecond), np.mean(diff_de).to(u.milliarcsecond)))
         if max_iterations == 1:
             break
 
@@ -492,8 +502,15 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
         # tangent plane projection
         source_catalog_x, source_catalog_y = RADec2Pix_TAN(source_catalog.ra.to(u.deg), source_catalog.dec.to(u.deg),
                                                                  reference_point_for_projection.ra,
-                                                                 reference_point_for_projection.dec, scale);
+                                                                 reference_point_for_projection.dec, scale)
 
+        # astropy3 support, if RADec2Pix_TAN returns astropy quantities, strip those
+        try:
+            unit = source_catalog_x.unit
+            source_catalog_x = source_catalog_x.value
+            source_catalog_y = source_catalog_y.value
+        except AttributeError:
+            pass
 
         # first catalog, these are the measured sources because we want to determine tha transformation that corrects onto the reference catalog frame
         mp.p[0, :, [i_x, i_y]] = np.vstack((source_catalog_x[index_source_cat], source_catalog_y[index_source_cat]))
@@ -512,7 +529,8 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
                                            use_position_uncertainties=use_position_uncertainties)
 
         if (iteration_number == (max_iterations - 1)) & (verbose):
-            lazAC.displayResults(evaluation_frame_number=evaluation_frame_number, scaleFactorForResiduals=1.)
+        # if (verbose):
+            lazAC.display_results(evaluation_frame_number=evaluation_frame_number, scale_factor_for_residuals=1.)
             lazAC.plotResiduals(evaluation_frame_number, out_dir, name_seed, omc_scale = 1., save_plot=save_plot, omc_unit='mas')
 
         iteration_number += 1

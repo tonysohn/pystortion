@@ -13,6 +13,7 @@ Use
 
 from astropy.modeling import models as astmodels
 from astropy.modeling import rotations as astrotations
+import astropy.units as u
 
 def RADec2Pix_TAN(RA, Dec, RA_ref, Dec_ref, scale=1.):
     """
@@ -40,7 +41,7 @@ def RADec2Pix_TAN(RA, Dec, RA_ref, Dec_ref, scale=1.):
     """
 
     # for zenithal projections, i.e. gnomonic, i.e. TAN:
-    lonpole = 180.
+    lonpole = 180. * u.deg
 
     # tangent plane projection from phi/theta to x,y
     tan = astmodels.Sky2Pix_TAN()
@@ -86,7 +87,7 @@ def Pix2RADec_TAN(x, y, RA_ref, Dec_ref, scale=1.):
 
     """
     # for zenithal projections, i.e. gnomonic, i.e. TAN
-    lonpole = 180.
+    lonpole = 180. * u.deg
 
     x = x / scale
     y = y / scale

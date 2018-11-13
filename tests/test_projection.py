@@ -44,12 +44,12 @@ class ProjectionTestCase(unittest.TestCase):
         ra_deg_all = ra_deg_mesh.flatten()
         de_deg_all = de_deg_mesh.flatten()
 
-        self.ra  = ra_deg_all
-        self.dec = de_deg_all
+        self.ra  = ra_deg_all * u.deg
+        self.dec = de_deg_all * u.deg
         
         # projection reference point
-        self.ra_ref = RA0_deg
-        self.dec_ref = DE0_deg
+        self.ra_ref = RA0_deg * u.deg
+        self.dec_ref = DE0_deg * u.deg
 
     def test_projection_TAN(self):
         """
@@ -62,11 +62,11 @@ class ProjectionTestCase(unittest.TestCase):
         scale = 1.
         x,y = projection.RADec2Pix_TAN(self.ra,self.dec, self.ra_ref, self.dec_ref, scale)
         
-        ra,dec = projection.Pix2RADec_TAN(x, y, self.ra_ref, self.dec_ref,scale)
+        ra,dec = projection.Pix2RADec_TAN(x, y, self.ra_ref, self.dec_ref, scale)
 
         difference_modulus = np.sqrt( (self.ra-ra)**2 + (self.dec-dec)**2 )
         
-        self.assertTrue(np.std(difference_modulus) < 1.e-13, 'Problem in RADec2Pix_TAN or Pix2RADec_TAN')
+        self.assertTrue(np.std(difference_modulus.value) < 1.e-13, 'Problem in RADec2Pix_TAN or Pix2RADec_TAN')
 
 if __name__ == '__main__':
     unittest.main()
