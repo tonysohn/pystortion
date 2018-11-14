@@ -21,6 +21,7 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 import pytest
 
+print('\n__file__={0:<35} | __name__={1:<20} | __package__={2:<20}'.format(__file__,__name__,str(__package__)))
 from ..pystortion import crossmatch
 
 @pytest.fixture
@@ -44,8 +45,11 @@ def test_crossmatch(generate_catalogs):
     primary_catalog, secondary_catalog = generate_catalogs
     xmatch_radius = 2. * u.arcsecond
     rejection_level_sigma = 3.
+    verbose = True
+    verbose_figures = True
     index_primary_catalog, index_secondary_catalog, d2d, d3d, delta_ra_cosdelta, delta_dec = \
-        crossmatch.xmatch(primary_catalog, secondary_catalog, xmatch_radius, rejection_level_sigma, verbose_figures=False)
+        crossmatch.xmatch(primary_catalog, secondary_catalog, xmatch_radius, rejection_level_sigma,
+                          verbose_figures=verbose_figures, verbose=verbose)
 
     print('Number of stars in primary_catalog   {}'.format(len(primary_catalog)))
     print('Number of stars in secondary_catalog {}'.format(len(secondary_catalog)))
@@ -53,3 +57,7 @@ def test_crossmatch(generate_catalogs):
 
     # expect that all stars are crossmatched
     assert len(index_primary_catalog) == len(primary_catalog)
+
+# for debugging
+if __name__ == '__main__':
+    test_crossmatch(generate_catalogs)
