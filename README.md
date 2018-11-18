@@ -1,8 +1,8 @@
-[![Build Status](https://travis-ci.org/spacetelescope/pystortion.svg?branch=master)](https://travis-ci.org/spacetelescope/pystortion)
+[![Build Status](https://travis-ci.org/spacetelescope/pystortion.svg?branch=primary)](https://travis-ci.org/spacetelescope/pystortion)
 [![Documentation Status](https://readthedocs.org/projects/pystortion/badge/?version=latest)](https://pystortion.readthedocs.io/en/latest/?badge=latest)
-[![Coverage Status](https://coveralls.io/repos/github/spacetelescope/pystortion/badge.svg?branch=master)](https://coveralls.io/github/spacetelescope/pystortion?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/spacetelescope/pystortion/badge.svg?branch=primary)](https://coveralls.io/github/spacetelescope/pystortion?branch=master)
 [![PyPI version](https://badge.fury.io/py/pystortion.svg)](https://badge.fury.io/py/pystortion)
-[![PyPI - License](https://img.shields.io/pypi/l/Django.svg)](https://github.com/spacetelescope/pystortion/blob/master/LICENSE.md)
+[![PyPI - License](https://img.shields.io/pypi/l/Django.svg)](https://github.com/spacetelescope/pystortion/blob/primary/licenses/AURA.rst)
 
 # pystortion
 Support for distortion measurements in astronomical imagers.
