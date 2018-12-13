@@ -1,3 +1,7 @@
 *.pyc
 *.DS_Store
 *.ipynb
+pystortion.egg-info
+v/cache
+version.py
+cython_version.py

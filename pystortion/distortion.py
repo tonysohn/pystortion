@@ -130,6 +130,8 @@ class multiEpochAstrometry(object):
 def prepare_multi_epoch_astrometry(star_catalog_matched, reference_catalog_matched, fieldname_dict=None):
     """Return a multiEpochAstrometry object with two catalogs that are populated from the arguments
 
+    By default results (e.g. fit residual rms) are returned in the 'position_unit'
+
     # PREPARE DISTORTION FIT
 
     :param star_catalog_matched: astropy table
@@ -260,11 +262,18 @@ class lazAstrometryCoefficients(object):
         self.data=data
 
     def display_results(self, evaluation_frame_number=1, precision=7, scale_factor_for_residuals=1., display_correlations=False,
-                        nformat='f'):
+                        nformat='f', print_rms_only=False):
 
         scaleFactor = scale_factor_for_residuals
         names = ['X', 'Y']
         resFields = ['resx', 'resy']
+
+        if print_rms_only:
+            print('RMS  in X and Y: {0:f}  and  {1:f}'.format(
+                self.rms[evaluation_frame_number][0] * scale_factor_for_residuals,
+                self.rms[evaluation_frame_number][1] * scale_factor_for_residuals))
+            return
+
         for i, r in enumerate(resFields):
             print('Polynomial parameters in {0:s}:'.format(names[i]))
             eval('self.{0:s}[{1:d}]'.format(r, evaluation_frame_number)).display_results(precision=precision,
@@ -612,7 +621,7 @@ class lazAstrometryCoefficients(object):
 
             # total offset due to k=4
             mode = 4
-            xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, Cs, P, x_mesh, y_mesh,
+            xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh,
                                                           includeAllHigherOrders=False)
             U_tot, V_tot = xp - x_mesh, yp - y_mesh
 
@@ -770,7 +779,7 @@ class lazAstrometryCoefficients(object):
 
         # total offset due to k=4
         mode = 4
-        xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, Cs, P, x_mesh, y_mesh,
+        xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh,
                                                       includeAllHigherOrders=False)
         U_tot, V_tot = xp - x_mesh, yp - y_mesh
 
@@ -825,7 +834,7 @@ class lazAstrometryCoefficients(object):
         # now figure showing everythin that is not offset, global scale, or global rotation
         # total offset due to k>4
         mode = 4
-        xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, Cs, P, x_mesh, y_mesh,
+        xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh,
                                                       includeAllHigherOrders=True)
         U_tot, V_tot = xp - x_mesh, yp - y_mesh
 
@@ -1040,14 +1049,20 @@ class lazAstrometryCoefficients(object):
                 pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
 
     def get_polynomial(self, Cs, P, partial_mode=0, include_all_higher_orders=True):
-        """
-        return a polynomial model
+        """Return a polynomial model.
 
-        :param Cs:
-        :param P:
-        :param partial_mode:
-        :param include_all_higher_orders:
-        :return:
+        Parameters
+        ----------
+        Cs
+        P
+        partial_mode : int
+            If zero, the full polynomial includign all terms is computed
+        include_all_higher_orders : bool
+
+        Returns
+        -------
+        polynomial :
+
         """
         if partial_mode == 0:
             # full model
@@ -1066,19 +1081,23 @@ class lazAstrometryCoefficients(object):
 
         return polynomial
 
-    def apply_polynomial_transformation(self, evaluation_frame_number, partial_mode, xx, yy, includeAllHigherOrders=False):
-        """Apply the polynomial model defined by the coefficients stored in self.Alm to the input coordinates xx,yy
+    def apply_polynomial_transformation(self, evaluation_frame_number, xx, yy, partial_mode=0, includeAllHigherOrders=False):
+        """Apply the polynomial model defined by the coefficients stored in self.Alm to the input coordinates xx,yy.
 
         Attention when using reduced coordinates!
 
-        :param evaluation_frame_number:
-        :param partial_mode:
-        :param Cs:
-        :param P:
-        :param xx:
-        :param yy:
-        :param includeAllHigherOrders:
-        :return:
+        Parameters
+        ----------
+        evaluation_frame_number
+        xx
+        yy
+        partial_mode : int
+            By default, this is 0 and the full polynomial is applied.
+        includeAllHigherOrders
+
+        Returns
+        -------
+
         """
         ii = evaluation_frame_number
 
@@ -1145,17 +1164,14 @@ class lazAstrometryCoefficients(object):
             modes = np.array([44, 4, 6])
             for jj, mode in enumerate(modes):
                 if mode == 4:
-                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, Cs, P, x_mesh, y_mesh,
-                                                                  includeAllHigherOrders=False)
+                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh, includeAllHigherOrders=False)
                     xp_0, yp_0 = x_mesh, y_mesh
                 elif mode == 44:
                     modetmp = 4
-                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, modetmp, Cs, P, x_mesh, y_mesh,
-                                                                  includeAllHigherOrders=True)
+                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, modetmp, x_mesh, y_mesh, includeAllHigherOrders=True)
                     xp_0, yp_0 = x_mesh, y_mesh
                 elif mode == 6:
-                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, Cs, P, x_mesh, y_mesh,
-                                                                  includeAllHigherOrders=True)
+                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh, includeAllHigherOrders=True)
                     xp_0, yp_0 = 0., 0.
                 U = np.ma.masked_array(xp, mask=~goodMeshMask) - xp_0  # to show offsets
                 V = np.ma.masked_array(yp, mask=~goodMeshMask) - yp_0
@@ -1211,11 +1227,11 @@ class lazAstrometryCoefficients(object):
             pl.subplot(np.ceil(len(modes) / 3.), 3, jj + 1)
 
             if mode == 0:  # show total distortion
-                xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, Cs, P, x_mesh, y_mesh)
+                xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh, y_mesh, partial_mode=mode)
                 xp_0, yp_0 = x_mesh, y_mesh
                 lbl = 'total'
             else:
-                xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, Cs, P, x_mesh, y_mesh)
+                xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh, y_mesh, partial_mode=mode)
                 if mode == 4:
                     xp_0, yp_0 = x_mesh, y_mesh
                 else:
