@@ -26,7 +26,10 @@ from .projection import Pix2RADec_TAN, RADec2Pix_TAN
 from .distortion import bivariate_polynomial, fitDistortion, multiEpochAstrometry
 
 
-def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0, remove_multiple_matches=True, retain_best_match=False, verbose=False, verbose_figures=False, saveplot=False, out_dir=None, name_seed=None):
+def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
+           remove_multiple_matches=True, retain_best_match=False, verbose=False,
+           verbose_figures=False, saveplot=False, out_dir=None, name_seed=None,
+           thinning_factor=1):
     """
     Crossmatch two SkyCoord catalogs with RA and Dec fields
     written 2016-12-22 J. Sahlmann, AURA/STScI
@@ -103,13 +106,11 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0, r
             primary_zorder = -50
             secondary_zorder = -40
 
-        #         pl.plot(primary_cat.ra,primary_cat.dec,'b.',label='primary catalog')
-        #         pl.plot(primary_cat.ra[  idx_primaryCat    ],primary_cat.dec[  idx_primaryCat  ],'b.')
-        pl.plot(secondary_cat.ra, secondary_cat.dec, secondary_catalog_plot_symbol, label='secondary catalog',
+        pl.plot(secondary_cat.ra[1::thinning_factor], secondary_cat.dec[1::thinning_factor], secondary_catalog_plot_symbol, label='secondary catalog',
                 zorder=secondary_zorder, mfc=None)
-        pl.plot(primary_cat.ra, primary_cat.dec, primary_catalog_plot_symbol, label='primary catalog',
+        pl.plot(primary_cat.ra[1::thinning_factor], primary_cat.dec[1::thinning_factor], primary_catalog_plot_symbol, label='primary catalog',
                 zorder=primary_zorder, mfc='none', ms=10, mew=2)  # , ms=primary_ms) #,
-        pl.plot(secondary_cat.ra[idx_secondaryCat], secondary_cat.dec[idx_secondaryCat], 'kx', label='xmatch sources',
+        pl.plot(secondary_cat.ra[idx_secondaryCat][1::thinning_factor], secondary_cat.dec[idx_secondaryCat][1::thinning_factor], 'kx', label='xmatch sources',
                 zorder=-20)
         ax = pl.gca()
         ax.invert_xaxis()
@@ -132,18 +133,16 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0, r
 
     # display actual distortion
     if verbose_figures:
-        X = primary_cat.ra[idx_primaryCat];
-        Y = primary_cat.dec[idx_primaryCat];
-        #         zeroPointIndex = np.where(diff_raStar == np.median(diff_raStar))[0][0]
-        #         zeroPointIndex = np.where(diff_de == np.median(diff_de))[0][0]
-        U0 = diff_raStar
-        V0 = diff_de
+        X = primary_cat.ra[idx_primaryCat][1::thinning_factor]
+        Y = primary_cat.dec[idx_primaryCat][1::thinning_factor]
+        U0 = diff_raStar[1::thinning_factor]
+        V0 = diff_de[1::thinning_factor]
         U = U0 - np.median(U0)
         V = V0 - np.median(V0)
 
         UV_factor = primary_cat.ra.unit.to(u.milliarcsecond)
 
-        n_bins = np.int(len(xmatchDistance) / 5)
+        n_bins = np.int(len(xmatchDistance) / 4 / thinning_factor)
 
         # xmatch diagnostics
         pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k'); pl.clf()
@@ -432,7 +431,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
                 source_catalog_x_corr = PHIx
                 source_catalog_y_corr = PHIy
             else:
-                source_catalog_x_corr, source_catalog_y_corr = lazAC.apply_polynomial_transformation(evaluation_frame_number, 0, source_catalog_x, source_catalog_y)
+                source_catalog_x_corr, source_catalog_y_corr = lazAC.apply_polynomial_transformation(evaluation_frame_number, source_catalog_x, source_catalog_y)
                 # 1/0
                 # pl.figure()
                 # pl.plot(source_catalog_x_corr, source_catalog_y_corr, 'bo')
@@ -491,7 +490,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
         ############################################################
         # PREPARE DISTORTION FIT
         n_stars = len(index_source_cat)
-        col_names = np.array(['x', 'y', 'sigma_x', 'sigma_y'])
+        col_names = np.array(['x', 'y', 'sigma_x', 'sigma_y', 'id'])
         p = np.zeros((2, n_stars, len(col_names)))
         mp = multiEpochAstrometry(p, col_names)
 

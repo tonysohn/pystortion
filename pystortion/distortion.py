@@ -31,17 +31,37 @@ from astropy.table import hstack as tablehstack
 
 from astropy.coordinates import SkyCoord
 import scipy
-import linearfit.linearfit as linearfit
+try:
+    import linearfit.linearfit as linearfit
+except ImportError:
+    print('linearift package is not available')
+    pass
 
-import sympy
-from sympy.abc import x, y
-from sympy import MatrixSymbol, Matrix
-from sympy.utilities.lambdify import lambdify
-from sympy.abc import x as sympy_x
-from sympy.abc import y as sympy_y
+try:
+    import sympy
+    from sympy.abc import x, y
+    from sympy import MatrixSymbol, Matrix
+    from sympy.utilities.lambdify import lambdify
+    from sympy.abc import x as sympy_x
+    from sympy.abc import y as sympy_y
+except ImportError:
+    print('sympy package is not available')
+    pass
+
+try:
+    import fpalign
+except ImportError:
+    print('fpalign package is not available')
+    pass
 
 import scipy.spatial
 import matplotlib
+
+try:
+    from kapteyn import kmpfit
+except ImportError:
+    print('kapteyn package is not available')
+    pass
 
 
 home_dir = os.environ['HOME']
@@ -53,6 +73,17 @@ from .projection import Pix2RADec_TAN, RADec2Pix_TAN
 
 
 deg2mas = u.deg.to(u.mas)
+
+def moving_average(a, n=3):
+    """
+    https://stackoverflow.com/questions/14313510/how-to-calculate-moving-average-using-numpy/14314054
+    """
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    # return ret[n - 1:] / n
+    return ret / n
+
+
 
 class multiEpochAstrometry(object):
     """Class for multi-epoch astrometry of matched sources"""
@@ -181,12 +212,12 @@ def prepare_multi_epoch_astrometry(star_catalog_matched, reference_catalog_match
 
     for index in [0,1]:
         if index == 0: # first catalog (instrument)
-            catalog = star_catalog_matched.copy()
+            catalog = copy.deepcopy(star_catalog_matched)
             catalog_name = 'star_catalog'
             star_names = np.array(catalog[fieldname_dict[catalog_name]['identifier']])
             xmatchId = star_names.copy()
         elif index == 1: # second catalog (reference, e.g. Gaia)
-            catalog = reference_catalog_matched.copy()
+            catalog = copy.deepcopy(reference_catalog_matched)
             catalog_name = 'reference_catalog'
             star_names = np.array(catalog[fieldname_dict[catalog_name]['identifier']]).astype(np.int)
 
@@ -196,22 +227,6 @@ def prepare_multi_epoch_astrometry(star_catalog_matched, reference_catalog_match
             np.array(catalog[fieldname_dict[catalog_name]['sigma_position_1']]) * fieldname_dict[catalog_name]['sigma_position_unit'].to(fieldname_dict[catalog_name]['position_unit']),
             np.array(catalog[fieldname_dict[catalog_name]['sigma_position_2']]) * fieldname_dict[catalog_name]['sigma_position_unit'].to(fieldname_dict[catalog_name]['position_unit']),
             xmatchId, star_names))
-
-    # mp.p[0, :, [i_x, i_y, i_sx, i_sy, i_id, i_oid]] = np.vstack((
-    #                                                             np.array(star_catalog_matched['v2_tangent_arcsec']),
-    #                                                             np.array(star_catalog_matched['v3_tangent_arcsec']), \
-    #                                                             np.array(
-    #                                                                 star_catalog_matched['sigma_x_mas']) / 1000.,
-    #                                                             np.array(
-    #                                                                 star_catalog_matched['sigma_y_mas']) / 1000., \
-    #                                                             xmatchId, hnames))
-    # # second catalog (Gaia)
-    # mp.p[1, :, [i_x, i_y, i_sx, i_sy, i_id, i_oid]] = np.vstack((
-    #                                                             np.array(reference_catalog_matched['v2_tangent_arcsec']),
-    #                                                             np.array(reference_catalog_matched['v3_tangent_arcsec']), \
-    #                                                             np.array(reference_catalog_matched['ra_error']) / 1000.,
-    #                                                             np.array(reference_catalog_matched['dec_error']) / 1000., \
-    #                                                             xmatchId, gnames))
 
     return mp
 
@@ -291,13 +306,14 @@ class lazAstrometryCoefficients(object):
             self.resy[evaluation_frame_number].chi2 / self.resy[evaluation_frame_number].n_freedom))
 
         #         if (self.use_reduced_coordinates == 0) & (self.k>=4):
-        if (self.k >= 4) & (self.k < 10):
+        if (self.k >= 4):# & (self.k < 12):
             # display classical quantities: shift, rotation, skew (only meaningful if reduced coordinates are not used)
             self.human_readable_solution_parameters = displayRotScaleSkew(self, i=evaluation_frame_number,
                                                                           scaleFactor=scaleFactor, nformat=nformat)
 
     def plotResiduals(self, evaluation_frame_number, outDir, nameSeed, omc_scale=1., save_plot=1, omc_unit='undefined',
-                      xy_unit='undefined', xy_scale=1., title=None, verbose=False, target_number=None, plot_correlations=False, **kwargs):
+                      xy_unit='undefined', xy_scale=1., title=None, verbose=False, target_number=None, plot_correlations=False,
+                      plot_apertures=None, **kwargs):
         """
 
         2018-08-13 add target_index argument to exlude target residuals from plotting
@@ -354,7 +370,7 @@ class lazAstrometryCoefficients(object):
                                     name_seed=nameSeed, separate_panels=True, titles=title, **kwargs)
 
         # plot residuals on sky
-        fig = pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+        fig = pl.figure(figsize=(6, 6), facecolor='w', edgecolor='k')
         pl.clf()
         # xy = np.ma.masked_array(self.p[ii, :, [ix, iy]], mask=[self.p[ii, :, [ix, iy]] == 0]) * xy_scale
         xy = np.ma.masked_array(self.p[ii, plot_index, np.array([ix, iy])[:, np.newaxis]], mask=[self.p[ii, plot_index, np.array([ix, iy])[:, np.newaxis]] == 0]) * xy_scale
@@ -362,6 +378,7 @@ class lazAstrometryCoefficients(object):
         # xy = self.p[ii, plot_index, [ix, iy]] * xy_scale
 
         pl.quiver(xy[0], xy[1], U, V, angles='xy')
+        pl.axis('tight')
         pl.axis('equal')
         pl.xlabel('X (%s)' % xy_unit)
         pl.ylabel('Y (%s)' % xy_unit)
@@ -369,6 +386,10 @@ class lazAstrometryCoefficients(object):
         if title is not None:
             title_string = '{}, {}'.format(title, title_string)
         pl.title(title_string)
+        if plot_apertures is not None:
+            ax = pl.gca()
+            for aperture in plot_apertures:
+                aperture.plot(ax=ax, fill_color='none', color='0.7')
 
         pl.show()
         if save_plot == 1:
@@ -399,6 +420,11 @@ class lazAstrometryCoefficients(object):
             pl.axis('equal')
             pl.xlabel(xlabl)
             pl.ylabel(ylabl)
+            if plot_apertures is not None:
+                ax = pl.gca()
+                for aperture in plot_apertures:
+                    aperture.plot(ax=ax, fill_color='none', color='0.7')
+
         fig.tight_layout(h_pad=0.0)
         if title is not None:
             pl.title(title)
@@ -408,23 +434,42 @@ class lazAstrometryCoefficients(object):
             figName = os.path.join(outDir, '%s_residuals_sky.pdf' % nameSeed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
 
+
+
+        n_moving_average = 500
         fig = pl.figure(figsize=(10, 5), facecolor='w', edgecolor='k')
         pl.clf()
-        pl.subplot(1, 2, 1)
-        pl.plot(xy[0], self.resx[ii].residuals[plot_index] * omc_scale, 'b.')
-        pl.xlabel('X (%s)' % xy_unit)
-        pl.ylabel('Residuals in X (%s)' % omc_unit)
-        if title is not None:
-            pl.title(title)
-        pl.subplot(1, 2, 2)
-        pl.plot(xy[1], self.resy[ii].residuals[plot_index] * omc_scale, 'r.')
-        pl.xlabel('Y (%s)' % xy_unit)
-        pl.ylabel('Residuals in Y (%s)' % omc_unit)
+        for jj, axis_name in enumerate(['X', 'Y']):
+
+            pl.subplot(1, 2, jj+1)
+            x_plot = xy[jj]
+            y_plot = getattr(self, 'res{}'.format(axis_name.lower()))[ii].residuals[plot_index] * omc_scale
+            sort_index = np.argsort(x_plot)
+            if jj == 0:
+                pl.plot(x_plot, y_plot, 'b.')
+            else:
+                pl.plot(x_plot, y_plot, 'r.')
+            pl.plot(x_plot[sort_index], moving_average(y_plot[sort_index], n=n_moving_average), 'k-')
+            pl.xlabel('{} ({})'.format(axis_name, xy_unit))
+            pl.ylabel('Residuals in {} ({})'.format(axis_name, omc_unit))
+            if (jj==0) & (title is not None):
+                pl.title(title)
+
+        # pl.plot(xy[0], moving_average(self.resx[ii].residuals[plot_index] * omc_scale, n=n_moving_average), 'k-')
+        # pl.xlabel('X (%s)' % xy_unit)
+        # pl.ylabel('Residuals in X (%s)' % omc_unit)
+        # pl.subplot(1, 2, 2)
+        # pl.plot(xy[1], self.resy[ii].residuals[plot_index] * omc_scale, 'r.')
+        # pl.plot(xy[1], moving_average(self.resy[ii].residuals[plot_index] * omc_scale, n=n_moving_average), 'k-')
+        # pl.xlabel('Y (%s)' % xy_unit)
+        # pl.ylabel('Residuals in Y (%s)' % omc_unit)
         fig.tight_layout(h_pad=0.0)
         pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_distortionResidualsVsRADec.pdf' % nameSeed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+
+
 
         if plot_correlations:
             fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
@@ -455,6 +500,21 @@ class lazAstrometryCoefficients(object):
 
 
     def plotResults(self, evaluation_frame_number, outDir, nameSeed, saveplot=1, xy_unit='undefined', xy_scale=1.):
+        """
+
+        Parameters
+        ----------
+        evaluation_frame_number
+        outDir
+        nameSeed
+        saveplot
+        xy_unit
+        xy_scale
+
+        Returns
+        -------
+
+        """
         Nframes, Nstars, Nfields = self.p.shape
         Nalm = self.Nalm
 
@@ -514,8 +574,108 @@ class lazAstrometryCoefficients(object):
         path = matplotlib.path.Path(points[hull.vertices,])
         return path
 
+
+    def _set_footprint_grid(self, n_grid=100, remove_masked=True, evaluation_frame_number=1):
+        """Set x,y grid coordinates that sample the footprint."""
+
+        polynomial_evaluation_grid = copy.deepcopy(self.C) # ximinusx0
+
+        # add back reference point
+        polynomial_evaluation_grid[1,:] += 1*self.referencePoint[evaluation_frame_number, 0]
+        polynomial_evaluation_grid[2,:] += 1*self.referencePoint[evaluation_frame_number, 1]
+
+        points = np.array(polynomial_evaluation_grid[[1, 2],], dtype='float32').T
+        path = self.getHullPath(points)
+
+        x_min = np.min(polynomial_evaluation_grid[1,])
+        x_max = np.max(polynomial_evaluation_grid[1,])
+        y_min = np.min(polynomial_evaluation_grid[2,])
+        y_max = np.max(polynomial_evaluation_grid[2,])
+        # x_min = np.min(self.C[1,])
+        # x_max = np.max(self.C[1,])
+        # y_min = np.min(self.C[2,])
+        # y_max = np.max(self.C[2,])
+
+        xx = np.linspace(x_min, x_max, n_grid)
+        yy = np.linspace(y_min, y_max, n_grid)
+        x_mesh, y_mesh = np.meshgrid(xx, yy)
+
+        goodMeshMask = path.contains_points(np.array([x_mesh.flatten(), y_mesh.flatten()]).T).reshape(x_mesh.shape)
+        x_mesh = np.ma.masked_array(x_mesh, mask=~goodMeshMask)
+        y_mesh = np.ma.masked_array(y_mesh, mask=~goodMeshMask)
+
+        if remove_masked:
+            # return unmasked arrays of valid grid points
+            index = np.where(x_mesh.mask == False)
+            x_mesh = np.array(x_mesh.data[index])
+            y_mesh = np.array(y_mesh.data[index])
+
+        self.x_footprint = x_mesh
+        self.y_footprint = y_mesh
+
+
+    def plot_distortion_offsets(self, evaluation_frame_number=1, plot_dir=os.environ['HOME'],
+                                name_seed='distortion_offsets', siaf=None, plot_aperture_names=None,
+                                verbose=True):
+
+        if hasattr(self, 'x_footprint') is False:
+            self._set_footprint_grid(n_grid=10)
+
+        # fig = pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+        # pl.clf()
+
+        data = {}
+        data['reference'] = {'x': self.x_footprint, 'y': self.y_footprint}
+
+        xx = copy.deepcopy(self.x_footprint)
+        yy = copy.deepcopy(self.y_footprint)
+
+        x_distorted, y_distorted = self.apply_polynomial_transformation(evaluation_frame_number, xx, yy)
+
+        if verbose:
+            print('*'*20)
+            print('Illustration of the effect of the distortion polynomial')
+            print('Reference point for this polynomial is {0[0]}, {0[1]}'.format(self.referencePoint[evaluation_frame_number]))
+            x_ref_distorted, y_ref_distorted = self.apply_polynomial_transformation(evaluation_frame_number, self.referencePoint[evaluation_frame_number, 0], self.referencePoint[evaluation_frame_number, 1])
+            print('Transformed reference point is at      {0}, {1}'.format(x_ref_distorted, y_ref_distorted))
+            if siaf is not None:
+                for aperture_name in plot_aperture_names:
+                    aperture = siaf[aperture_name]
+                    print('{}  V2Ref={:2.3f} V3Ref={:2.3f}'.format(aperture_name, aperture.V2Ref_original, aperture.V3Ref_original))
+                    x_apref_distorted, y_apref_distorted = self.apply_polynomial_transformation(
+                        evaluation_frame_number, aperture.V2Ref_original, aperture.V3Ref_original)
+                    print('Transformed V2Ref={:2.3f}  V3Ref={:2.3f}'.format(x_apref_distorted, y_apref_distorted))
+                    print('Difference dV2Ref={:2.3f} dV3Ref={:2.3f}'.format(x_apref_distorted-aperture.V2Ref_original, y_apref_distorted-aperture.V3Ref_original))
+            print('*'*20)
+
+        data['comparison_0'] = {'x': x_distorted, 'y': y_distorted}
+
+        fpalign.alignment.plot_spatial_difference(data,
+                                                  figure_types=['data', 'quiver', 'offset-corrected-quiver'],
+                                                  xy_label=['$\\nu_2$', '$\\nu_3$'], xy_unit='arcsec',
+                                                  plot_dir=plot_dir,
+                                                  name_seed=name_seed, siaf=siaf,
+                                                  plot_aperture_names=plot_aperture_names)
+
+
     def plotRotation(self, evaluation_frame_number, outDir, nameSeed, referencePointForProjection_Pix, save_plot=1,
                      xy_unit='undefined', xy_scale=1.):
+        """
+
+        Parameters
+        ----------
+        evaluation_frame_number
+        outDir
+        nameSeed
+        referencePointForProjection_Pix
+        save_plot
+        xy_unit
+        xy_scale
+
+        Returns
+        -------
+
+        """
         ii = evaluation_frame_number
         ix = np.where(self.colNames == 'x')[0][0]
         iy = np.where(self.colNames == 'y')[0][0]
@@ -621,8 +781,8 @@ class lazAstrometryCoefficients(object):
 
             # total offset due to k=4
             mode = 4
-            xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh,
-                                                          includeAllHigherOrders=False)
+            xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh, y_mesh,
+                                                          partial_mode=mode, includeAllHigherOrders=False)
             U_tot, V_tot = xp - x_mesh, yp - y_mesh
 
             # difference = scale offset
@@ -779,8 +939,9 @@ class lazAstrometryCoefficients(object):
 
         # total offset due to k=4
         mode = 4
-        xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh,
-                                                      includeAllHigherOrders=False)
+        xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh, y_mesh,
+                                                      partial_mode=mode, includeAllHigherOrders=False)
+
         U_tot, V_tot = xp - x_mesh, yp - y_mesh
 
         U_nonlin = U_tot - U_rot - U_scale
@@ -834,8 +995,8 @@ class lazAstrometryCoefficients(object):
         # now figure showing everythin that is not offset, global scale, or global rotation
         # total offset due to k>4
         mode = 4
-        xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh,
-                                                      includeAllHigherOrders=True)
+        xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh, y_mesh,
+                                                      partial_mode=mode, includeAllHigherOrders=True)
         U_tot, V_tot = xp - x_mesh, yp - y_mesh
 
         #         U_nonlin = U_tot - U_rot - U_scale
@@ -1081,7 +1242,7 @@ class lazAstrometryCoefficients(object):
 
         return polynomial
 
-    def apply_polynomial_transformation(self, evaluation_frame_number, xx, yy, partial_mode=0, includeAllHigherOrders=False):
+    def apply_polynomial_transformation(self, evaluation_frame_number, xx_in, yy_in, partial_mode=0, includeAllHigherOrders=False):
         """Apply the polynomial model defined by the coefficients stored in self.Alm to the input coordinates xx,yy.
 
         Attention when using reduced coordinates!
@@ -1100,6 +1261,18 @@ class lazAstrometryCoefficients(object):
 
         """
         ii = evaluation_frame_number
+
+        xx = copy.deepcopy(xx_in)
+        yy = copy.deepcopy(yy_in)
+
+        correct_for_reference_point = True
+        if correct_for_reference_point:
+            # subtract reference point
+            referencePositionX = self.referencePoint[np.int(ii), 0]
+            referencePositionY = self.referencePoint[np.int(ii), 1]
+
+            xx -= referencePositionX
+            yy -= referencePositionY
 
         P = sympy.symbols('p0:%d' % self.Nalm)
         Cs, polynomialTermOrder = bivariate_polynomial(sympy_x, sympy_y, self.k, verbose=0)
@@ -1122,6 +1295,10 @@ class lazAstrometryCoefficients(object):
             ret_x = np.ones(xx.shape) * wfunc_x(xx, yy)[0][0]
             ret_y = np.ones(yy.shape) * wfunc_y(xx, yy)[0][0]
             return_values = ret_x, ret_y
+
+        if correct_for_reference_point:
+            return_values = return_values[0] + referencePositionX, return_values[1] + referencePositionY
+
 
         return return_values
 
@@ -1164,14 +1341,20 @@ class lazAstrometryCoefficients(object):
             modes = np.array([44, 4, 6])
             for jj, mode in enumerate(modes):
                 if mode == 4:
-                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh, includeAllHigherOrders=False)
+                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh,
+                                                                  y_mesh, partial_mode=mode,
+                                                                  includeAllHigherOrders=False)
                     xp_0, yp_0 = x_mesh, y_mesh
                 elif mode == 44:
                     modetmp = 4
-                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, modetmp, x_mesh, y_mesh, includeAllHigherOrders=True)
+                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh,
+                                                                  y_mesh, partial_mode=modetmp,
+                                                                  includeAllHigherOrders=True)
                     xp_0, yp_0 = x_mesh, y_mesh
                 elif mode == 6:
-                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, mode, x_mesh, y_mesh, includeAllHigherOrders=True)
+                    xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh,
+                                                                  y_mesh, partial_mode=mode,
+                                                                  includeAllHigherOrders=True)
                     xp_0, yp_0 = 0., 0.
                 U = np.ma.masked_array(xp, mask=~goodMeshMask) - xp_0  # to show offsets
                 V = np.ma.masked_array(yp, mask=~goodMeshMask) - yp_0
@@ -1268,7 +1451,8 @@ class lazAstrometryCoefficients(object):
                                    scale)
         # P = sympy.symbols('p0:%d' % self.Nalm)
         # Cs, polynomialTermOrder = bivariate_polynomial(x, y, self.k, verbose=0)
-        x_corr, y_corr = self.apply_polynomial_transformation(evaluation_frame_number, 0, x_in, y_in)
+        x_corr, y_corr = self.apply_polynomial_transformation(evaluation_frame_number, x_in, y_in,
+                                                              partial_mode=0)
         ra_corr, dec_corr = Pix2RADec_TAN(x_corr, y_corr, referencePointForProjection_RADec[0],
                                           referencePointForProjection_RADec[1], scale)
         return ra_corr, dec_corr
@@ -1596,7 +1780,6 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
 
 ########################################################################################
 ########################################################################################
-from kapteyn import kmpfit
 
 
 def polynomialModel(Alm, C):
@@ -1720,9 +1903,7 @@ def fitPolynomialWithUncertaintyInXandY(LHS, ximinusx0, yiminusy0, uncertainty_X
 def getLazAstrometryCoefficientsFlexible(mp_input, k, reference_frame_number, targetIndex=None, referencePoint=None,
                                          usePositionUncertainties=0, maxdeg=None, useReducedCoordinates=1,
                                          considerUncertaintiesInXandY=0, verbose=0, masked_stars=None):
-    """
-
-    Perform a 2D polynomial fit between the reference_frame_number and all other 'frames' contained in mp.p
+    """Perform a 2D polynomial fit between the reference_frame_number and all other 'frames' contained in mp.p
 
     The corresponding polynomial coefficients returned in the lazAstrometryCoefficients object transform
     from the reference_frame_number frame to all the other frames
@@ -2018,39 +2199,42 @@ def compute_rot_scale_skew(lazAC, i=0, scaleFactor=1.):
     """
     xshift = lazAC.Alm[i, 0] * scaleFactor
     yshift = lazAC.Alm[i, lazAC.Nalm] * scaleFactor
-    idx_forXterm = np.where(lazAC.polynomialTermOrder == 'x')[0]
-    idx_forYterm = np.where(lazAC.polynomialTermOrder == 'y')[0]
+    if lazAC.k > 2:
+        idx_forXterm = np.where(lazAC.polynomialTermOrder == 'x')[0]
+        idx_forYterm = np.where(lazAC.polynomialTermOrder == 'y')[0]
 
-    b = lazAC.Alm[i, idx_forXterm] * scaleFactor  # x term
-    c = lazAC.Alm[i, idx_forYterm] * scaleFactor  # y term
-    e = lazAC.Alm[i, lazAC.Nalm + idx_forXterm] * scaleFactor  # x term
-    f = lazAC.Alm[i, lazAC.Nalm + idx_forYterm] * scaleFactor  # y term
+        b = lazAC.Alm[i, idx_forXterm] * scaleFactor  # x term
+        c = lazAC.Alm[i, idx_forYterm] * scaleFactor  # y term
+        e = lazAC.Alm[i, lazAC.Nalm + idx_forXterm] * scaleFactor  # x term
+        f = lazAC.Alm[i, lazAC.Nalm + idx_forYterm] * scaleFactor  # y term
 
-    xmag, ymag, xrotation, yrotation, rotation, skew, relative_scale, skew_onaxis, skew_offaxis, rotation2 = computeRotScaleSkewFromPolyCoeff(
-        b, c, e, f)
+        if 0:
+            xmag, ymag, xrotation, yrotation, rotation, skew, relative_scale, skew_onaxis, skew_offaxis, rotation2 = computeRotScaleSkewFromPolyCoeff(
+            b, c, e, f)
 
-    # determine uncertainties assuming Gaussian distributions
-    N_mc = 1000
-    np.random.seed(0)
+        # determine uncertainties assuming Gaussian distributions
+        N_mc = 1000
+        np.random.seed(0)
 
-    #   using renormalised uncertainties
-    b_mc = b + np.random.normal(0., lazAC.s_Alm_normal[i, idx_forXterm] * scaleFactor, N_mc)
-    c_mc = c + np.random.normal(0., lazAC.s_Alm_normal[i, idx_forYterm] * scaleFactor, N_mc)
-    e_mc = e + np.random.normal(0., lazAC.s_Alm_normal[i, lazAC.Nalm + idx_forXterm] * scaleFactor, N_mc)
-    f_mc = f + np.random.normal(0., lazAC.s_Alm_normal[i, lazAC.Nalm + idx_forYterm] * scaleFactor, N_mc)
+        #   using renormalised uncertainties
+        b_mc = b + np.random.normal(0., lazAC.s_Alm_normal[i, idx_forXterm] * scaleFactor, N_mc)
+        c_mc = c + np.random.normal(0., lazAC.s_Alm_normal[i, idx_forYterm] * scaleFactor, N_mc)
+        e_mc = e + np.random.normal(0., lazAC.s_Alm_normal[i, lazAC.Nalm + idx_forXterm] * scaleFactor, N_mc)
+        f_mc = f + np.random.normal(0., lazAC.s_Alm_normal[i, lazAC.Nalm + idx_forYterm] * scaleFactor, N_mc)
 
-    #   using formal uncertainties
-    b_mcf = b + np.random.normal(0., lazAC.s_Alm_formal[i, idx_forXterm] * scaleFactor, N_mc)
-    c_mcf = c + np.random.normal(0., lazAC.s_Alm_formal[i, idx_forYterm] * scaleFactor, N_mc)
-    e_mcf = e + np.random.normal(0., lazAC.s_Alm_formal[i, lazAC.Nalm + idx_forXterm] * scaleFactor, N_mc)
-    f_mcf = f + np.random.normal(0., lazAC.s_Alm_formal[i, lazAC.Nalm + idx_forYterm] * scaleFactor, N_mc)
+        #   using formal uncertainties
+        b_mcf = b + np.random.normal(0., lazAC.s_Alm_formal[i, idx_forXterm] * scaleFactor, N_mc)
+        c_mcf = c + np.random.normal(0., lazAC.s_Alm_formal[i, idx_forYterm] * scaleFactor, N_mc)
+        e_mcf = e + np.random.normal(0., lazAC.s_Alm_formal[i, lazAC.Nalm + idx_forXterm] * scaleFactor, N_mc)
+        f_mcf = f + np.random.normal(0., lazAC.s_Alm_formal[i, lazAC.Nalm + idx_forYterm] * scaleFactor, N_mc)
 
-    xmag_mc, ymag_mc, xrotation_mc, yrotation_mc, rotation_mc, skew_mc, relative_scale_mc, skew_onaxis_mc, skew_offaxis_mc, rotation2_mc = computeRotScaleSkewFromPolyCoeff(
-        b_mc, c_mc, e_mc, f_mc)
-    xmag_mcf, ymag_mcf, xrotation_mcf, yrotation_mcf, rotation_mcf, skew_mcf, relative_scale_mcf, skew_onaxis_mcf, skew_offaxis_mcf, rotation2_mcf = computeRotScaleSkewFromPolyCoeff(
-        b_mcf, c_mcf, e_mcf, f_mcf)
+        xmag_mc, ymag_mc, xrotation_mc, yrotation_mc, rotation_mc, skew_mc, relative_scale_mc, skew_onaxis_mc, skew_offaxis_mc, rotation2_mc = computeRotScaleSkewFromPolyCoeff(
+            b_mc, c_mc, e_mc, f_mc)
+        if 0:
+            xmag_mcf, ymag_mcf, xrotation_mcf, yrotation_mcf, rotation_mcf, skew_mcf, relative_scale_mcf, skew_onaxis_mcf, skew_offaxis_mcf, rotation2_mcf = computeRotScaleSkewFromPolyCoeff(
+            b_mcf, c_mcf, e_mcf, f_mcf)
 
-    deg2arcsec = u.deg.to(u.arcsec)
+            deg2arcsec = u.deg.to(u.arcsec)
 
     dat = np.zeros((12, 2))
     nams = np.array(
@@ -2060,16 +2244,17 @@ def compute_rot_scale_skew(lazAC, i=0, scaleFactor=1.):
 
     dat[0, :] = [xshift, lazAC.s_Alm_normal[i, 0]]
     dat[1, :] = [yshift, lazAC.s_Alm_normal[i, lazAC.Nalm]]
-    dat[2, :] = [np.mean(xrotation_mc), np.std(xrotation_mc)]
-    dat[3, :] = [np.mean(yrotation_mc), np.std(yrotation_mc)]
-    dat[4, :] = [np.mean(xmag_mc), np.std(xmag_mc)]
-    dat[5, :] = [np.mean(ymag_mc), np.std(ymag_mc)]
-    dat[6, :] = [np.mean(rotation_mc), np.std(rotation_mc)]
-    dat[7, :] = [np.mean(skew_mc), np.std(skew_mc)]
-    dat[8, :] = [np.mean(rotation2_mc), np.std(rotation2_mc)]
-    dat[9, :] = [np.mean(relative_scale_mc), np.std(relative_scale_mc)]
-    dat[10, :] = [np.mean(skew_onaxis_mc), np.std(skew_onaxis_mc)]
-    dat[11, :] = [np.mean(skew_offaxis_mc), np.std(skew_offaxis_mc)]
+    if lazAC.k > 2:
+        dat[2, :] = [np.mean(xrotation_mc), np.std(xrotation_mc)]
+        dat[3, :] = [np.mean(yrotation_mc), np.std(yrotation_mc)]
+        dat[4, :] = [np.mean(xmag_mc), np.std(xmag_mc)]
+        dat[5, :] = [np.mean(ymag_mc), np.std(ymag_mc)]
+        dat[6, :] = [np.mean(rotation_mc), np.std(rotation_mc)]
+        dat[7, :] = [np.mean(skew_mc), np.std(skew_mc)]
+        dat[8, :] = [np.mean(rotation2_mc), np.std(rotation2_mc)]
+        dat[9, :] = [np.mean(relative_scale_mc), np.std(relative_scale_mc)]
+        dat[10, :] = [np.mean(skew_onaxis_mc), np.std(skew_onaxis_mc)]
+        dat[11, :] = [np.mean(skew_offaxis_mc), np.std(skew_offaxis_mc)]
 
     human_readable_solution_parameters = {'values': dat, 'names': nams, 'units': units}
 
@@ -2218,6 +2403,8 @@ def fitDistortion(mp, k, reference_frame_number=0, evaluation_frame_number=1, ta
 
     """
 
+    targetIndex = None
+
     if debug == 1:
         p = mp.p
         x = p[:, :, 2]
@@ -2254,7 +2441,7 @@ def fitDistortion(mp, k, reference_frame_number=0, evaluation_frame_number=1, ta
         pl.title('Catalog positions')
         pl.show()
 
-    if (k == 2) & (1 == 1):
+    if (k == 2) & verbose:
         # has to use reduced coordinates, otherwise yields senseless results
         use_reduced_coordinates = 1
         print('Mode k = {0:d}, forced to use reduced coordinates!'.format(k))
