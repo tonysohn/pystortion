@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 import glob
 
 setup(name="pystortion",
-      version="0.1.0",
+      version="0.1.1",
       description="Tools for the analysis of geometric distortion of astronomical imagers.",
     author="Johannes Sahlmann", author_email="jsahlmann@stsci.edu",
     keywords=["ote", "jwst", "commissioning", "mimf", "fgs", "alignment", "niriss"],
