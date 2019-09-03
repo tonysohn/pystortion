@@ -87,6 +87,15 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
     if len(idx_primaryCat) == 0:
         raise RuntimeError('crossmatch did not return any match')
 
+    primary_plot_ra = primary_cat.ra.value
+    secondary_plot_ra = secondary_cat.ra.value
+
+    # tackle wrapping or RA coordinates
+    if np.ptp(primary_plot_ra) > 350:
+        primary_plot_ra[np.where(primary_plot_ra > 180)[0]] -= 360
+    if np.ptp(secondary_plot_ra) > 350:
+        secondary_plot_ra[np.where(secondary_plot_ra > 180)[0]] -= 360
+
     if verbose_figures:
         fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
         pl.clf()
@@ -106,11 +115,11 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
             primary_zorder = -50
             secondary_zorder = -40
 
-        pl.plot(secondary_cat.ra[1::thinning_factor], secondary_cat.dec[1::thinning_factor], secondary_catalog_plot_symbol, label='secondary catalog',
+        pl.plot(secondary_plot_ra[1::thinning_factor], secondary_cat.dec[1::thinning_factor], secondary_catalog_plot_symbol, label='secondary catalog',
                 zorder=secondary_zorder, mfc=None)
-        pl.plot(primary_cat.ra[1::thinning_factor], primary_cat.dec[1::thinning_factor], primary_catalog_plot_symbol, label='primary catalog',
+        pl.plot(primary_plot_ra[1::thinning_factor], primary_cat.dec[1::thinning_factor], primary_catalog_plot_symbol, label='primary catalog',
                 zorder=primary_zorder, mfc='none', ms=10, mew=2)  # , ms=primary_ms) #,
-        pl.plot(secondary_cat.ra[idx_secondaryCat][1::thinning_factor], secondary_cat.dec[idx_secondaryCat][1::thinning_factor], 'kx', label='xmatch sources',
+        pl.plot(secondary_plot_ra[idx_secondaryCat][1::thinning_factor], secondary_cat.dec[idx_secondaryCat][1::thinning_factor], 'kx', label='xmatch sources',
                 zorder=-20)
         ax = pl.gca()
         ax.invert_xaxis()
@@ -133,7 +142,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
 
     # display actual distortion
     if verbose_figures:
-        X = primary_cat.ra[idx_primaryCat][1::thinning_factor]
+        X = primary_plot_ra[idx_primaryCat][1::thinning_factor]
         Y = primary_cat.dec[idx_primaryCat][1::thinning_factor]
         U0 = diff_raStar[1::thinning_factor]
         V0 = diff_de[1::thinning_factor]

@@ -64,9 +64,9 @@ except ImportError:
     pass
 
 
-home_dir = os.environ['HOME']
-sys.path.append(os.path.join(home_dir,'jwst/code/gitlab/jsahlmann/universal_helpers/helpers'))
-import helpers
+# home_dir = os.environ['HOME']
+# sys.path.append(os.path.join(home_dir,'jwst/code/gitlab/jsahlmann/universal_helpers/helpers'))
+import uhelpers as helpers
 
 
 from .projection import Pix2RADec_TAN, RADec2Pix_TAN
@@ -389,7 +389,7 @@ class lazAstrometryCoefficients(object):
         if plot_apertures is not None:
             ax = pl.gca()
             for aperture in plot_apertures:
-                aperture.plot(ax=ax, fill_color='none', color='0.7')
+                aperture.plot(ax=ax, fill_color='none', color='0.7', label=True)
 
         pl.show()
         if save_plot == 1:
