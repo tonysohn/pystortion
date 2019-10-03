@@ -1498,52 +1498,6 @@ class lazAstrometryCoefficients(object):
         return bad_star_index
 
 
-# def RADec2Pix_TAN(RA, Dec, RA_ref, Dec_ref, scale=1.):
-#     """
-#     The arguments RA,Dec,RA_ref,Dec_ref are all in decimal degrees. Scale is a convenience parameter that should default to 1.0
-#     in which case the returned x,y are also in degree. So you will have to multiply those by the pixel scale to get the detector coordinates in pixels. I
-#     """
-#
-#     # for zenithal projections, i.e. gnomonic, i.e. TAN
-#     lonpole = 180.
-#
-#     # tangent plane projection from phi/theta to x,y
-#     tan = astmodels.Sky2Pix_TAN()
-#
-#     # compute native coordinate rotation to obtain phi and theta
-#     rotForTan = astrotations.RotateCelestial2Native(RA_ref, Dec_ref, lonpole)
-#
-#     phiTheta = rotForTan(RA, Dec)
-#
-#     # pixel coordinates,  x and y are in degree-equivalent
-#     x, y = tan(phiTheta[0], phiTheta[1])
-#
-#     x *= scale
-#     y *= scale
-#     return x, y
-
-
-# def Pix2RADec_TAN(x, y, RA_ref, Dec_ref, scale=1.):
-#     # for zenithal projections, i.e. gnomonic, i.e. TAN
-#     lonpole = 180.
-#
-#     x /= scale
-#     y /= scale
-#
-#     # tangent plane projection from x,y to phi/theta
-#     tan = astmodels.Pix2Sky_TAN()
-#
-#     # compute native coordinate rotation to obtain RA and Dec
-#     rotForTan = astrotations.RotateNative2Celestial(RA_ref, Dec_ref, lonpole)
-#
-#     phi, theta = tan(x, y)
-#
-#     # RA and Dec
-#     Ra, Dec = rotForTan(phi, theta)
-#
-#     return Ra, Dec
-
-
 def bivariate_polynomial(xval, yval, k=None, degree=None, maxDegree=None, verbose=False):
     """
     Generate general polynomial evaluated at xval,yval for use in astrometric distortion calculations
@@ -1599,8 +1553,6 @@ def bivariate_polynomial(xval, yval, k=None, degree=None, maxDegree=None, verbos
             print('Order of the returned array/matrix', xb[goodIndex])
 
         return np.mat(gp[:, goodIndex]).T, xb[goodIndex].astype(np.str)
-# if degree is not None:
-#       gp = np.polynomial.polynomial.polyvander2d(xval,yval,degree)
 
 
 def getRefStarAstrometricData(mp, targetId):
