@@ -19,6 +19,276 @@ from matplotlib.ticker import FormatStrFormatter
 import astropy.units as u
 
 
+def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_catalog,
+                                                                   input_reference_catalog,
+                                                                   out_dir,
+                                                                   reference_uncertainty_catalog=None,
+                                                                   reference_point_for_projection=None,
+                                                                   name_seed='iterative_xmatch',
+                                                                   overwrite=True,
+                                                                   verbose=False,
+                                                                   verbose_figures = False,
+                                                                   max_iterations=10,
+                                                                   n_interation_switch=5,
+                                                                   initial_crossmatch_radius=0.3 * u.arcsec,
+                                                                   save_plot=True,
+                                                                   adaptive_xmatch_radius_factor=10,
+                                                                   k=4,
+                                                                   rejection_level_sigma=5.,
+                                                                   retain_best_of_multiple_matches=True):
+    """
+
+    :param verbose_figures:
+    :param input_source_catalog:
+    :param input_reference_catalog:
+    :param uncertainty_catalog:
+    :param reference_point_for_projection:
+    :param name_seed:
+    :param overwrite:
+    :param verbose:
+    :param max_iterations:
+    :param n_interation_switch:
+    :param initial_crossmatch_radius:
+    :param k:
+    :return:
+    """
+
+    if reference_point_for_projection is None:
+        reference_point_for_projection = SkyCoord(ra=np.mean(input_reference_catalog.ra), dec = np.mean(input_reference_catalog.dec))
+
+    # distortion fit parameters
+    reference_frame_number = 0
+    evaluation_frame_number = 1
+    use_position_uncertainties = 0
+
+    # scale for tangent plane projection
+    # we want to work in milliarcseconds, scale = deg2mas
+    scale = reference_point_for_projection.ra.unit.to(u.milliarcsecond)
+
+    # scale_factor_for_residuals
+    scale_factor_for_residuals = 1.
+
+    source_catalog_table = Table([input_source_catalog.ra, input_source_catalog.dec], names=('ra', 'dec'))
+    reference_catalog_table = Table([input_reference_catalog.ra, input_reference_catalog.dec], names=('ra', 'dec'))
+
+    reference_catalog = copy.deepcopy(input_reference_catalog)
+
+    # this is the source catalog that is not altered
+    source_catalog = SkyCoord(ra=source_catalog_table['ra'].data.data * u.degree, dec=source_catalog_table['dec'].data.data * u.degree)
+
+    # project both catalogs onto tangent plane with reference point in the field center, distortion is computed between those projections
+    if verbose:
+            print('Reference point position RA/Dec {0:3.8f} / {1:3.8f}'.format(reference_point_for_projection.ra,
+                                                                       reference_point_for_projection.dec))
+    # tangent plane projection
+    reference_catalog_x, reference_catalog_y = RADec2Pix_TAN(reference_catalog.ra.to(u.deg),
+                                                             reference_catalog.dec.to(u.deg),
+                                                             reference_point_for_projection.ra,
+                                                             reference_point_for_projection.dec, scale)
+
+    #####################################
+    # loop to iteratively apply the distortion solution and re-crossmatch the catalog (original x,y coordinates should remain untouched though!)
+    # loop that refines the x and y position based on the current iteration's distortion model
+    iteration_verbose = True
+    iteration_verbose_figures = True
+    iteration_verbose = False
+    iteration_verbose_figures = False
+    iteration_saveplot = save_plot
+
+    xmatch_radius_reducer = True
+    xmatch_radius_reducer = False
+
+    iteration_number = 0
+    for j in np.arange(max_iterations):
+        if iteration_verbose:
+            print('-' * 30, ' Iteration %d ' % iteration_number, '-' * 30)
+
+        if iteration_number == 0:
+            xmatch_radius = initial_crossmatch_radius
+        elif iteration_number > n_interation_switch:
+            if xmatch_radius_reducer:
+                xmatch_radius = xmatch_radius/2.
+            else:
+                # adaptive xmatch radius as function of fit residuals
+                xmatch_radius = adaptive_xmatch_radius_factor * np.mean(lazAC.rms[1, :] * scale_factor_for_residuals) / 1000. * u.arcsec
+                if xmatch_radius > initial_crossmatch_radius:
+                    xmatch_radius = initial_crossmatch_radius
+        else:
+            xmatch_radius = initial_crossmatch_radius
+        # if iteration_verbose:
+        if verbose:
+            print('Using xmatch radius of {}'.format(xmatch_radius))
+
+        # if iteration_number <= n_interation_switch:
+        #     # use only bright stars in both image and catalog
+        #     T = T_bright.copy()
+        #     #             bright_calibration_star_index = np.where(calibFieldCat.table['vcal'] < bright_star_limit_vcal)[0]
+        #     calibFieldCat.selectSources('vcal', '<', bright_star_limit_vcal)
+        #     #             calibCat   = SkyCoord(ra=calibFieldCat.table['ra'][bright_calibration_star_index]*u.degree, dec=calibFieldCat.table['dec'][bright_calibration_star_index]*u.degree)
+        # else:
+        #     # use all available stars
+        #     T = T_complete.copy()
+        #     #             calibFieldCat = calibFieldCat_complete
+        #     calibFieldCat.table = calibFieldCat_complete_table
+
+
+        if iteration_verbose:
+            print('using %d sources for distortion fitting (%d stars in reference catalog)' % (
+                len(source_catalog_table), len(reference_catalog_table)))
+
+
+
+        if iteration_number == 0:
+            # primaryCat ra,dec are only used for xmatch
+            source_catalog_table['ra_corr']  = source_catalog_table['ra']
+            source_catalog_table['dec_corr'] = source_catalog_table['dec']
+
+            # if iteration_number != (max_iterations - 1):
+            tmp_verbose = iteration_verbose
+            tmp_verbose_figures = iteration_verbose_figures
+            tmp_save_plot = iteration_saveplot
+
+        if iteration_number == (max_iterations - 1):
+            tmp_verbose = verbose
+            tmp_verbose_figures = verbose_figures
+            tmp_save_plot = save_plot
+
+        if iteration_number > 0:
+            # apply the distortion model to the initial x-y coordinates to improve the xmatch, increase the number of sources
+
+            if verbose:
+                print('Polynomial fit residuals of previous iteration: %3.3e native = %3.3f mas (offsets %3.3f / %3.3f)' % (np.mean(lazAC.rms[1, :]), np.mean(lazAC.rms[1, :]) * scale_factor_for_residuals, lazAC.Alm[evaluation_frame_number][0], lazAC.Alm[evaluation_frame_number][lazAC.Nalm]))
+
+            if 0:
+                # pl.close('all')
+                # k = lazAC.k
+                # referencePositionX = referencePoint[:, 0]
+                # referencePositionY = referencePoint[:, 1]
+                # x_dif = np.array(T['x']) - referencePositionX[refFrameNumber]
+                # y_dif = np.array(T['y']) - referencePositionY[refFrameNumber]
+
+                # these parameters are always computed in the reference frame
+                ximinusx0 = source_catalog_x - reference_point[reference_frame_number, 0]
+                yiminusy0 = source_catalog_y - reference_point[reference_frame_number, 1]
+                # compute polynomial terms for all detected sources
+                C, polynomialTermOrder = bivariate_polynomial(ximinusx0, yiminusy0, k)
+
+                # since we are not using reduced coordinates, the model position is simply
+                PHIx = np.array(C.T * np.mat(lazAC.Alm[evaluation_frame_number, 0:lazAC.Nalm ]).T).flatten();
+                PHIy = np.array(C.T * np.mat(lazAC.Alm[evaluation_frame_number,   lazAC.Nalm:]).T).flatten();
+
+                #  idl_tan_x  (x_corr and y_corr)      are in IDL coordinates (degrees, tangent-plane projected IDL frame)
+                # distortion corrected tangent-plane coordinates
+                source_catalog_x_corr = PHIx
+                source_catalog_y_corr = PHIy
+            else:
+                source_catalog_x_corr, source_catalog_y_corr = lazAC.apply_polynomial_transformation(evaluation_frame_number, source_catalog_x, source_catalog_y)
+                # 1/0
+                # pl.figure()
+                # pl.plot(source_catalog_x_corr, source_catalog_y_corr, 'bo')
+                # pl.plot(source_catalog_x, source_catalog_y, 'ko', mfc=None)
+                # pl.show()
+
+            #  deproject    to RA/Dec (now distortion corrected)
+            source_catalog_RA_corr, source_catalog_Dec_corr = Pix2RADec_TAN(source_catalog_x_corr, source_catalog_y_corr, reference_point_for_projection.ra, reference_point_for_projection.dec, scale)
+
+            source_catalog_table['ra_corr'] = source_catalog_RA_corr
+            source_catalog_table['dec_corr'] = source_catalog_Dec_corr
+
+            if 0:
+                pl.figure()
+                pl.plot(source_catalog_table['ra_corr'], source_catalog_table['dec_corr'], 'bo', label='corrected')
+                pl.plot(source_catalog_table['ra'], source_catalog_table['dec'], 'ko', mfc='w', label='original')
+                pl.plot(reference_catalog_table['ra'], reference_catalog_table['dec'], 'r.', mfc='w', label='reference')
+                pl.legend(loc='best')
+                pl.show()
+                1/0
+
+        #####################################
+        # do the crossmatch
+        source_catalog_for_crossmatch = SkyCoord(ra=source_catalog_table['ra_corr'].data.data * u.degree, dec=source_catalog_table['dec_corr'].data.data * u.degree)
+        iteration_name_seed = '%s_iteration%d' % (name_seed, iteration_number)
+
+        # run xmatch
+        pickle_file = os.path.join(out_dir, 'xmatch_%s.pkl' % iteration_name_seed)
+        if (not os.path.isfile(pickle_file)) | (overwrite):
+            index_source_cat, index_reference_cat, d2d, d3d, diff_raStar, diff_de = xmatch(source_catalog_for_crossmatch,
+                                                                                           reference_catalog,
+                                                                                           xmatch_radius,
+                                                                                           rejection_level_sigma,
+                                                                                           retain_best_match=retain_best_of_multiple_matches,
+                                                                                           verbose=tmp_verbose,
+                                                                                           verbose_figures=tmp_verbose_figures,
+                                                                                           saveplot=tmp_save_plot,
+                                                                                           out_dir=out_dir,
+                                                                                           name_seed=iteration_name_seed)
+            pickle.dump((index_source_cat, index_reference_cat, d2d, d3d, diff_raStar, diff_de), open(pickle_file, "wb"))
+            # if verbose:
+            #     print("Wrote pickled file  %s" % pickle_file)
+        else:
+            index_source_cat, index_reference_cat, d2d, d3d, diff_raStar, diff_de = pickle.load(open(pickle_file, "rb"))
+            if verbose:
+                print("Loaded pickled file  %s" % pickle_file);
+
+        # if iteration_verbose:
+        if verbose:
+            print('{} cross-matched sources (mean xmatch distance in RA / Dec {:3.3f} / {:3.3f})'.format(len(index_source_cat), np.mean(diff_raStar).to(u.milliarcsecond), np.mean(diff_de).to(u.milliarcsecond)))
+        if max_iterations == 1:
+            break
+
+
+
+        ############################################################
+        # PREPARE DISTORTION FIT
+        n_stars = len(index_source_cat)
+        col_names = np.array(['x', 'y', 'sigma_x', 'sigma_y', 'id'])
+        p = np.zeros((2, n_stars, len(col_names)))
+        mp = multiEpochAstrometry(p, col_names)
+
+        i_x = np.where(mp.colNames == 'x')[0][0]
+        i_y = np.where(mp.colNames == 'y')[0][0]
+
+
+        # tangent plane projection
+        source_catalog_x, source_catalog_y = RADec2Pix_TAN(source_catalog.ra.to(u.deg), source_catalog.dec.to(u.deg),
+                                                                 reference_point_for_projection.ra,
+                                                                 reference_point_for_projection.dec, scale)
+
+        # astropy3 support, if RADec2Pix_TAN returns astropy quantities, strip those
+        try:
+            unit = source_catalog_x.unit
+            source_catalog_x = source_catalog_x.value
+            source_catalog_y = source_catalog_y.value
+        except AttributeError:
+            pass
+
+        # first catalog, these are the measured sources because we want to determine tha transformation that corrects onto the reference catalog frame
+        mp.p[0, :, [i_x, i_y]] = np.vstack((source_catalog_x[index_source_cat], source_catalog_y[index_source_cat]))
+        # second catalog (here this is the reference catalog)
+        mp.p[1, :, [i_x, i_y]] = np.vstack((reference_catalog_x[index_reference_cat], reference_catalog_y[index_reference_cat]))
+
+        ############################################################
+        # DISTORTION FIT
+
+        # define the reference point for the differential coordinates. has to have same units as x and y columns, if set to (0,0) the differential coordinates are the same as the coordinates
+        # either targetId or referencePoint have to be set in the call to fitDistortion
+        reference_point = np.array([[0., 0.], [0., 0.]])
+
+        lazAC = fitDistortion(mp, k, reference_frame_number=reference_frame_number, evaluation_frame_number=evaluation_frame_number,
+                                           reference_point=reference_point,
+                                           use_position_uncertainties=use_position_uncertainties)
+
+        if (iteration_number == (max_iterations - 1)) & (verbose):
+        # if (verbose):
+            lazAC.display_results(evaluation_frame_number=evaluation_frame_number, scale_factor_for_residuals=1.)
+            lazAC.plotResiduals(evaluation_frame_number, out_dir, name_seed, omc_scale = 1., save_plot=save_plot, omc_unit='mas')
+
+        iteration_number += 1
+
+    return index_source_cat, index_reference_cat, d2d, d3d, diff_raStar, diff_de
+
+
+
 def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
            remove_multiple_matches=True, retain_best_match=False, verbose=False,
            verbose_figures=False, save_plot=False, out_dir=None, name_seed=None):
