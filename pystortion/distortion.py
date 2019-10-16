@@ -41,7 +41,6 @@ import matplotlib
 
 from linearfit import linearfit
 from uhelpers import plotting_helpers
-# from pysiaf.utils import projection
 
 try:
     from kapteyn import kmpfit
@@ -139,17 +138,23 @@ class multiEpochAstrometry(object):
 
 
 def prepare_multi_epoch_astrometry(star_catalog_matched, reference_catalog_matched, fieldname_dict=None):
-    """Return a multiEpochAstrometry object with two catalogs that are populated from the arguments
+    """Return a multiEpochAstrometry object with two catalogs that are populated from the arguments.
 
-    By default results (e.g. fit residual rms) are returned in the 'position_unit'
+    Parameters
+    ----------
+    star_catalog_matched : astropy table
+        Table with one catalog
+    reference_catalog_matched : astropy table
+        Table with second catalog with matched rows for first catalog
+    fieldname_dict : dict
+        Specifies the table columns to be used
 
-    # PREPARE DISTORTION FIT
+    Returns
+    -------
+    mp : multiEpochAstrometry instance
+        Standardised format for matched astrometry
 
-    :param star_catalog_matched: astropy table
-    :param reference_catalog_matched: astropy table
-    :return:
     """
-
     if fieldname_dict is None:
         # dictionary to allow for flexible field/column names
         fieldname_dict = {}
@@ -226,7 +231,7 @@ class lazAstrometryCoefficients(object):
                  Nalm=None, resx=None, resy=None, s_Alm_normal=None, s_Alm_formal=None, s_p_red=None,
                  polynomialTermOrder=None, referencePoint=None, useReducedCoordinates=None, refFrameNumber=None,
                  colNames=None, data=None):
-        # self.name = name
+
         self.p = p
         self.p_dif = p_dif
         self.p_red = p_red
@@ -278,8 +283,7 @@ class lazAstrometryCoefficients(object):
             self.resx[evaluation_frame_number].chi2 / self.resx[evaluation_frame_number].n_freedom,
             self.resy[evaluation_frame_number].chi2 / self.resy[evaluation_frame_number].n_freedom))
 
-        #         if (self.use_reduced_coordinates == 0) & (self.k>=4):
-        if (self.k >= 4):# & (self.k < 12):
+        if (self.k >= 4):
             # display classical quantities: shift, rotation, skew (only meaningful if reduced coordinates are not used)
             self.human_readable_solution_parameters = displayRotScaleSkew(self, i=evaluation_frame_number,
                                                                           scaleFactor=scaleFactor, nformat=nformat)
@@ -1276,7 +1280,7 @@ class lazAstrometryCoefficients(object):
         return return_values
 
 
-    def plotDistortion(self, evaluation_frame_number, outDir, nameSeed, referencePointForProjection_Pix, save_plot=1,
+    def plotDistortion(self, evaluation_frame_number, outDir, nameSeed, save_plot=1,
                        xy_unit='undefined', xy_scale=1., detailed_plot_k=8):
         ii = evaluation_frame_number
         ix = np.where(self.colNames == 'x')[0][0]
