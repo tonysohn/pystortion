@@ -8,6 +8,7 @@
 Support for distortion measurements in astronomical imagers.
 
 ### Functionalities (work in progress)
+* Classes to support fitting of bivariate polynomials of arbitrary degree
 * Helper functions for crossmatching catalogs
  
 

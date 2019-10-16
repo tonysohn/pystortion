@@ -11,13 +11,19 @@ References
     method.
 
 """
+import copy
+import pickle
 import os
 
+import astropy.units as u
+from astropy.coordinates import SkyCoord
+from astropy.table import Table
+from matplotlib.ticker import FormatStrFormatter
 import numpy as np
 import pylab as pl
-from matplotlib.ticker import FormatStrFormatter
-import astropy.units as u
+from pysiaf.utils import projection
 
+from .distortion import multiEpochAstrometry, fitDistortion
 
 def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_catalog,
                                                                    input_reference_catalog,
@@ -81,7 +87,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
             print('Reference point position RA/Dec {0:3.8f} / {1:3.8f}'.format(reference_point_for_projection.ra,
                                                                        reference_point_for_projection.dec))
     # tangent plane projection
-    reference_catalog_x, reference_catalog_y = RADec2Pix_TAN(reference_catalog.ra.to(u.deg),
+    reference_catalog_x, reference_catalog_y = projection.project_to_tangent_plane(reference_catalog.ra.to(u.deg),
                                                              reference_catalog.dec.to(u.deg),
                                                              reference_point_for_projection.ra,
                                                              reference_point_for_projection.dec, scale)
@@ -190,7 +196,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
                 # pl.show()
 
             #  deproject    to RA/Dec (now distortion corrected)
-            source_catalog_RA_corr, source_catalog_Dec_corr = Pix2RADec_TAN(source_catalog_x_corr, source_catalog_y_corr, reference_point_for_projection.ra, reference_point_for_projection.dec, scale)
+            source_catalog_RA_corr, source_catalog_Dec_corr = projection.deproject_from_tangent_plane(source_catalog_x_corr, source_catalog_y_corr, reference_point_for_projection.ra, reference_point_for_projection.dec, scale)
 
             source_catalog_table['ra_corr'] = source_catalog_RA_corr
             source_catalog_table['dec_corr'] = source_catalog_Dec_corr
@@ -223,8 +229,6 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
                                                                                            out_dir=out_dir,
                                                                                            name_seed=iteration_name_seed)
             pickle.dump((index_source_cat, index_reference_cat, d2d, d3d, diff_raStar, diff_de), open(pickle_file, "wb"))
-            # if verbose:
-            #     print("Wrote pickled file  %s" % pickle_file)
         else:
             index_source_cat, index_reference_cat, d2d, d3d, diff_raStar, diff_de = pickle.load(open(pickle_file, "rb"))
             if verbose:
@@ -250,7 +254,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
 
 
         # tangent plane projection
-        source_catalog_x, source_catalog_y = RADec2Pix_TAN(source_catalog.ra.to(u.deg), source_catalog.dec.to(u.deg),
+        source_catalog_x, source_catalog_y = projection.project_to_tangent_plane(source_catalog.ra.to(u.deg), source_catalog.dec.to(u.deg),
                                                                  reference_point_for_projection.ra,
                                                                  reference_point_for_projection.dec, scale)
 
@@ -291,7 +295,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
 
 def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
            remove_multiple_matches=True, retain_best_match=False, verbose=False,
-           verbose_figures=False, save_plot=False, out_dir=None, name_seed=None):
+           verbose_figures=False, saveplot=False, out_dir=None, name_seed=None):
     """Crossmatch two SkyCoord catalogs with RA and Dec fields.
 
     Parameters
@@ -313,7 +317,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
         verbosity
     verbose_figures : bool
         Whether to display supporting figures
-    save_plot : bool
+    saveplot : bool
         Whether to save figures to disk
     out_dir : str
         Target directory for saving figures
@@ -402,7 +406,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
         pl.ylabel('Dec (deg)')
         pl.legend()
         pl.show()
-        if save_plot:
+        if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_onSky.pdf' % name_seed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
 
@@ -441,7 +445,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
         pl.legend(loc='best')
         fig.tight_layout(h_pad=0.0)
         pl.show()
-        if save_plot:
+        if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_distance.pdf' % name_seed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
 
@@ -544,7 +548,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
         fig.tight_layout(h_pad=0.0)
         pl.show()
 
-        if save_plot:
+        if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_distortionActual.pdf' % name_seed)
             pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0, dpi=300)
 

@@ -39,6 +39,8 @@ from sympy.abc import y as sympy_y
 import scipy.spatial
 import matplotlib
 
+from linearfit import linearfit
+from uhelpers import plotting_helpers
 
 try:
     from kapteyn import kmpfit
@@ -46,11 +48,7 @@ except ImportError:
     print('kapteyn package is not available')
     pass
 
-
-import uhelpers as helpers
-
 from .utils import plot_spatial_difference
-from pysiaf.utils import projection
 
 
 deg2mas = u.deg.to(u.mas)
@@ -140,17 +138,23 @@ class multiEpochAstrometry(object):
 
 
 def prepare_multi_epoch_astrometry(star_catalog_matched, reference_catalog_matched, fieldname_dict=None):
-    """Return a multiEpochAstrometry object with two catalogs that are populated from the arguments
+    """Return a multiEpochAstrometry object with two catalogs that are populated from the arguments.
 
-    By default results (e.g. fit residual rms) are returned in the 'position_unit'
+    Parameters
+    ----------
+    star_catalog_matched : astropy table
+        Table with one catalog
+    reference_catalog_matched : astropy table
+        Table with second catalog with matched rows for first catalog
+    fieldname_dict : dict
+        Specifies the table columns to be used
 
-    # PREPARE DISTORTION FIT
+    Returns
+    -------
+    mp : multiEpochAstrometry instance
+        Standardised format for matched astrometry
 
-    :param star_catalog_matched: astropy table
-    :param reference_catalog_matched: astropy table
-    :return:
     """
-
     if fieldname_dict is None:
         # dictionary to allow for flexible field/column names
         fieldname_dict = {}
@@ -227,7 +231,7 @@ class lazAstrometryCoefficients(object):
                  Nalm=None, resx=None, resy=None, s_Alm_normal=None, s_Alm_formal=None, s_p_red=None,
                  polynomialTermOrder=None, referencePoint=None, useReducedCoordinates=None, refFrameNumber=None,
                  colNames=None, data=None):
-        # self.name = name
+
         self.p = p
         self.p_dif = p_dif
         self.p_red = p_red
@@ -279,8 +283,7 @@ class lazAstrometryCoefficients(object):
             self.resx[evaluation_frame_number].chi2 / self.resx[evaluation_frame_number].n_freedom,
             self.resy[evaluation_frame_number].chi2 / self.resy[evaluation_frame_number].n_freedom))
 
-        #         if (self.use_reduced_coordinates == 0) & (self.k>=4):
-        if (self.k >= 4):# & (self.k < 12):
+        if (self.k >= 4):
             # display classical quantities: shift, rotation, skew (only meaningful if reduced coordinates are not used)
             self.human_readable_solution_parameters = displayRotScaleSkew(self, i=evaluation_frame_number,
                                                                           scaleFactor=scaleFactor, nformat=nformat)
@@ -339,7 +342,7 @@ class lazAstrometryCoefficients(object):
             print('maximum residual amplitude %3.3f ' % (np.max(np.sqrt(U ** 2 + V ** 2))))
 
         omc = np.vstack((U, V)).T
-        helpers.plotting_helpers.histogram_with_gaussian_fit(omc, facecolors=['b', 'r'], linecolors=['b', 'r'], labels=['X', 'Y'],
+        plotting_helpers.histogram_with_gaussian_fit(omc, facecolors=['b', 'r'], linecolors=['b', 'r'], labels=['X', 'Y'],
                                     xlabel='Residual O-C (%s)' % omc_unit, normed=1, save_plot=save_plot, out_dir=outDir,
                                     name_seed=nameSeed, separate_panels=True, titles=title, **kwargs)
 
@@ -1277,7 +1280,7 @@ class lazAstrometryCoefficients(object):
         return return_values
 
 
-    def plotDistortion(self, evaluation_frame_number, outDir, nameSeed, referencePointForProjection_Pix, save_plot=1,
+    def plotDistortion(self, evaluation_frame_number, outDir, nameSeed, save_plot=1,
                        xy_unit='undefined', xy_scale=1., detailed_plot_k=8):
         ii = evaluation_frame_number
         ix = np.where(self.colNames == 'x')[0][0]
@@ -1569,21 +1572,41 @@ def getCleanedAstrometricData(mp, s, targetId):
 
 
 
-def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, save_plot=False, reference_frame_index=None, name_seed='', plot_dir=''):
+def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, save_plot=False,
+                               reference_frame_index=None, name_seed='', plot_dir='', coord=None,
+                               parameters_to_plot=None, parameter_labels=None):
     """Make figures that show the evolution of the distortion fits stored in lazAC.
 
     Parameters
     ----------
     lazAC
     epoch_boundaries
+    show_plot
+    save_plot
+    reference_frame_index
+    name_seed
+    plot_dir
 
     Returns
     -------
 
     """
-    # show_plot = True
+    parameter_labels_default = {'Shift in X'     : 'Shift in X (arcsec)',
+                        'Shift in Y'     : 'Shift in Y (arcsec)',
+                        'Global Rotation': 'Global Rotation (deg)',
+                        'Global Scale'   : 'Global Scale (unitless)',
+                        'Rotation in X'  : 'Rotation in X (deg)',
+                        'Rotation in Y'  : 'Rotation in Y (deg)',
+                        'Scale in X'     : 'Scale in X (unitless)',
+                        'Scale in Y'     : 'Scale in Y (unitless)',
+                        'On-axis Skew'   : 'On-axis Skew (unitless)',
+                        'Off-axis Skew'  : 'Off-axis Skew (unitless)'}
+    if parameter_labels is None:
+        parameter_labels = parameter_labels_default
 
-    coord = np.arange(lazAC.Alm.shape[0])
+
+    if coord is None:
+        coord = np.arange(lazAC.Alm.shape[0])
     values = False
     for exposure_number in range(lazAC.Alm.shape[0]):
         human_readable_solution_parameters = \
@@ -1604,7 +1627,10 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
 
     T = tablehstack((val, unc))
 
-    if lazAC.useReducedCoordinates == 0:
+    if parameters_to_plot is not None:
+        row_width = 7
+        column_width = 2
+    elif lazAC.useReducedCoordinates == 0:
         parameters_to_plot = ['Shift in X', 'Shift in Y', 'Global Rotation', 'Global Scale', 'On-axis Skew', 'Off-axis Skew']
         row_width = 7
         column_width = 2
@@ -1643,7 +1669,10 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
             # axes[fig_row][fig_col].set_title(name)
             if fig_row == n_figure_rows - 1:
                 axes[fig_row][fig_col].set_xlabel('Frame number')
-            axes[fig_row][fig_col].set_ylabel(name)
+            if parameter_labels is None:
+                axes[fig_row][fig_col].set_ylabel(name)
+            else:
+                axes[fig_row][fig_col].set_ylabel(parameter_labels[name])
 
             if epoch_boundaries is not None:
                 for boundary in epoch_boundaries:
@@ -1795,10 +1824,6 @@ def fitPolynomialWithUncertaintyInXandY(LHS, ximinusx0, yiminusy0, uncertainty_X
         print('npegged\t', fitobj.npegged)
         print('orignorm\t', fitobj.orignorm)
         print('nfev\t', fitobj.nfev)
-    # print('nfev\t',fitobj.nfev)
-    #         1/0
-    #     if fitobj.xerror[0] == 0:
-    #       1/0
 
     #     fitobj.nfree is the number of free parameters, NOT degrees of freedom
     Nmes = LHS.shape[1]
@@ -1806,7 +1831,6 @@ def fitPolynomialWithUncertaintyInXandY(LHS, ximinusx0, yiminusy0, uncertainty_X
     omc = polynomialResiduals(fitobj.params, data)
     Nfree = Nmes - Nparam
 
-    # 1/0
     # fake a linearfit object
     res = linearfit.LinearFit(np.mat(1), np.mat(1), np.mat(1))
     res.p = fitobj.params
@@ -1818,7 +1842,6 @@ def fitPolynomialWithUncertaintyInXandY(LHS, ximinusx0, yiminusy0, uncertainty_X
     res.chi2 = fitobj.chi2_min
     res.n_freedom = Nfree
 
-    # res = linearfit.linearFitResult(p=fitobj.params, stdev_p_norm = fitobj.xerror,fit=None,omc=omc,chi2 = fitobj.chi2_min, stdev_p_raw=fitobj.stderr,myCov = fitobj.covar , Nfree=Nfree)
     return res
 
 
