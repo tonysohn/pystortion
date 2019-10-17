@@ -591,7 +591,7 @@ class lazAstrometryCoefficients(object):
         self.y_footprint = y_mesh
 
 
-    def plot_distortion_offsets(self, evaluation_frame_number=1, plot_dir=os.environ['HOME'],
+    def plot_distortion_offsets(self, evaluation_frame_number=1, plot_dir=os.path.expanduser('~'),
                                 name_seed='distortion_offsets', siaf=None, plot_aperture_names=None,
                                 verbose=True):
 
