@@ -3,6 +3,8 @@
 [![Coverage Status](https://coveralls.io/repos/github/spacetelescope/pystortion/badge.svg?branch=primary)](https://coveralls.io/github/spacetelescope/pystortion?branch=master)
 [![PyPI version](https://badge.fury.io/py/pystortion.svg)](https://badge.fury.io/py/pystortion)
 [![PyPI - License](https://img.shields.io/pypi/l/Django.svg)](https://github.com/spacetelescope/pystortion/blob/primary/licenses/AURA.rst)
+[![DOI](https://zenodo.org/badge/157456393.svg)](https://zenodo.org/badge/latestdoi/157456393)
+
 
 # pystortion
 Support for distortion measurements in astronomical imagers.
@@ -18,6 +20,12 @@ Please see ``tests/test_crossmatch.py``
 
 ### Documentation
 pystortion is documented at https://pystortion.readthedocs.io/  
+
+
+### Citation
+If you find this package useful, please consider citing the Zenodo record using the DOI badge above.
+Please find additional citation instructions in [CITATION](CITATION). 
+
 
 ### Contributing
 Please open a new issue or new pull request for bugs, feedback, or new features you would like to see. If there is an issue you would like to work on, please leave a comment and we will be happy to assist. New contributions and contributors are very welcome!   
