@@ -1,8 +1,54 @@
-See http://journals.aas.org/authors/references.html#Software on how to
-cite software.
+If you use `pystortion` for work/research presented in a publication (whether
+directly, or as a dependency to another package), we recommend and encourage
+the following acknowledgment:
 
-GitHub has Zenodo DOI integration:
-https://guides.github.com/activities/citable-code/
+  This research made use of pystortion, an open source Python package
+  for distortion determination in astronomical imagers (Sahlmann et al, 2019).
 
-Also see https://swcarpentry.github.io/git-novice/12-citation/
-for further reading.
+where (Sahlmann et al, 2019) is a citation of the Zenodo record:
+
+@software{johannes_sahlmann_2019_3516268,
+  author       = {Johannes Sahlmann and
+                  P. L. Lim and
+                  James Noss},
+  title        = {spacetelescope/pystortion: Release for Zenodo},
+  month        = oct,
+  year         = 2019,
+  publisher    = {Zenodo},
+  version      = {v0.1.3},
+  doi          = {10.5281/zenodo.3516268},
+  url          = {https://doi.org/10.5281/zenodo.3516268}
+}
+
+We encourage you to also include citations to the papers below in the main text
+wherever appropriate.
+Recommended BibTeX entries for the paper citations are:
+
+@ARTICLE{JWST-STScI-005492,
+	Author = {{Sahlmann}, J.},
+	Institution = {STScI},
+	Title = {Astrometric accuracy of the JWST calibration field catalog examined with the first Gaia data release},
+	Month = {January},
+	Number = {{JWST-STScI-005492}},
+	Type = {Technical Report},
+	Year = {2017},
+}
+
+@ARTICLE{Lazorenko:2014aa,
+	Author = {{Lazorenko}, P.~F. and {Sahlmann}, J. and {S{\'e}gransan}, D. and {Mart{\'{\i}}n}, E.~L. and {Mayor}, M. and {Queloz}, D. and {Udry}, S.},
+	Title = {{Astrometric planet search around southern ultracool dwarfs. II. Astrometric reduction methods and a deep astrometric catalogue}},
+	Adsurl = {http://adsabs.harvard.edu/abs/2014A%26A...565A..21L},
+	Archiveprefix = {arXiv},
+	Arxivurl = {http://arXiv.org/abs/1403.4619},
+	Doi = {10.1051/0004-6361/201323271},
+	Eid = {A21},
+	Eprint = {1403.4619},
+	Journal = {\aap},
+	Keywords = {astrometry, techniques: high angular resolution, atmospheric effects, parallaxes, brown dwarfs},
+	Month = may,
+	Pages = {A21},
+	Volume = 565,
+	Year = 2014,
+}
+
+

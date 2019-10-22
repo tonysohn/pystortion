@@ -1596,9 +1596,11 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
                         'Global Rotation': 'Global Rotation (deg)',
                         'Global Scale'   : 'Global Scale (unitless)',
                         'Rotation in X'  : 'Rotation in X (deg)',
+                        'Rotation'  : 'Rotation (deg)',
                         'Rotation in Y'  : 'Rotation in Y (deg)',
                         'Scale in X'     : 'Scale in X (unitless)',
                         'Scale in Y'     : 'Scale in Y (unitless)',
+                        'Skew'   : 'Skew (unitless)',
                         'On-axis Skew'   : 'On-axis Skew (unitless)',
                         'Off-axis Skew'  : 'Off-axis Skew (unitless)'}
     if parameter_labels is None:
@@ -1643,7 +1645,7 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
     n_figure_rows = np.int(np.ceil(n_panels / n_figure_columns))
 
 
-    if show_plot and 1:
+    if show_plot:
         fig, axes = pl.subplots(n_figure_rows, n_figure_columns,
                                 figsize=(n_figure_rows * row_width, n_figure_columns * column_width),
                                 facecolor='w', edgecolor='k', sharex=True, sharey=False,

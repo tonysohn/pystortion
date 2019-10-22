@@ -21,3 +21,10 @@ if sys.version_info < tuple((int(val) for val in __minimum_python_version__.spli
 if not _ASTROPY_SETUP_:
     # For egg_info test builds to pass, put package imports here.
     from .example_mod import *
+
+# Set the bibtex entry to the article referenced in CITATION.
+def _get_bibtex():
+    citation_file = os.path.join(os.path.dirname(__file__), 'CITATION')
+
+    with open(citation_file, 'r') as citation:
+        refs = citation.read().split('@ARTICLE')[1:]
