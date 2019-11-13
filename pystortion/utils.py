@@ -10,7 +10,7 @@ def plot_spatial_difference(data, siaf=None, plot_aperture_names=None,
                             figure_types=['data', 'quiver', 'offset-corrected-quiver'],
                             make_new_figure=True, xy_label=['v2', 'v3'], xy_unit='arcsec',
                             plot_dir=None, name_seed='spatial_difference', title_string='',
-                            quiver_scale=None, verbose=True):
+                            quiver_scale=None, verbose=True, show_plot=True):
     """Make figures that show spatial x-y-data and their vector differences.
 
     Parameters
@@ -62,7 +62,8 @@ def plot_spatial_difference(data, siaf=None, plot_aperture_names=None,
             pl.legend(loc='best')
             ax = pl.gca()
             ax.invert_yaxis()
-            pl.show()
+            if show_plot:
+                pl.show()
             if plot_dir is not None:
                 fig_name = os.path.join(plot_dir, '{}_{}.pdf'.format(name_seed, figure_type))
                 pl.savefig(fig_name, transparent=True, bbox_inches='tight', pad_inches=0)
