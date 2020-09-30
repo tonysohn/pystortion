@@ -343,7 +343,7 @@ class lazAstrometryCoefficients(object):
 
         omc = np.vstack((U, V)).T
         plotting_helpers.histogram_with_gaussian_fit(omc, facecolors=['b', 'r'], linecolors=['b', 'r'], labels=['X', 'Y'],
-                                    xlabel='Residual O-C (%s)' % omc_unit, normed=1, save_plot=save_plot, out_dir=outDir,
+                                    xlabel='Residual O-C (%s)' % omc_unit, save_plot=save_plot, out_dir=outDir,
                                     name_seed=nameSeed, separate_panels=True, titles=title, **kwargs)
 
         # plot residuals on sky
