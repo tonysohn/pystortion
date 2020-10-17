@@ -16,11 +16,11 @@ import pickle
 import os
 
 import astropy.units as u
+import numpy as np
+import matplotlib.pyplot as plt
 from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from matplotlib.ticker import FormatStrFormatter
-import numpy as np
-import pylab as pl
 from pysiaf.utils import projection
 
 from .distortion import multiEpochAstrometry, fitDistortion
@@ -166,7 +166,7 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
                 print('Polynomial fit residuals of previous iteration: %3.3e native = %3.3f mas (offsets %3.3f / %3.3f)' % (np.mean(lazAC.rms[1, :]), np.mean(lazAC.rms[1, :]) * scale_factor_for_residuals, lazAC.Alm[evaluation_frame_number][0], lazAC.Alm[evaluation_frame_number][lazAC.Nalm]))
 
             if 0:
-                # pl.close('all')
+                # plt.close('all')
                 # k = lazAC.k
                 # referencePositionX = referencePoint[:, 0]
                 # referencePositionY = referencePoint[:, 1]
@@ -190,10 +190,10 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
             else:
                 source_catalog_x_corr, source_catalog_y_corr = lazAC.apply_polynomial_transformation(evaluation_frame_number, source_catalog_x, source_catalog_y)
                 # 1/0
-                # pl.figure()
-                # pl.plot(source_catalog_x_corr, source_catalog_y_corr, 'bo')
-                # pl.plot(source_catalog_x, source_catalog_y, 'ko', mfc=None)
-                # pl.show()
+                # plt.figure()
+                # plt.plot(source_catalog_x_corr, source_catalog_y_corr, 'bo')
+                # plt.plot(source_catalog_x, source_catalog_y, 'ko', mfc=None)
+                # plt.show()
 
             #  deproject    to RA/Dec (now distortion corrected)
             source_catalog_RA_corr, source_catalog_Dec_corr = projection.deproject_from_tangent_plane(source_catalog_x_corr, source_catalog_y_corr, reference_point_for_projection.ra, reference_point_for_projection.dec, scale)
@@ -202,12 +202,12 @@ def crossmatch_sky_catalogues_with_iterative_distortion_correction(input_source_
             source_catalog_table['dec_corr'] = source_catalog_Dec_corr
 
             if 0:
-                pl.figure()
-                pl.plot(source_catalog_table['ra_corr'], source_catalog_table['dec_corr'], 'bo', label='corrected')
-                pl.plot(source_catalog_table['ra'], source_catalog_table['dec'], 'ko', mfc='w', label='original')
-                pl.plot(reference_catalog_table['ra'], reference_catalog_table['dec'], 'r.', mfc='w', label='reference')
-                pl.legend(loc='best')
-                pl.show()
+                plt.figure()
+                plt.plot(source_catalog_table['ra_corr'], source_catalog_table['dec_corr'], 'bo', label='corrected')
+                plt.plot(source_catalog_table['ra'], source_catalog_table['dec'], 'ko', mfc='w', label='original')
+                plt.plot(reference_catalog_table['ra'], reference_catalog_table['dec'], 'r.', mfc='w', label='reference')
+                plt.legend(loc='best')
+                plt.show()
                 1/0
 
         #####################################
@@ -374,8 +374,8 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
         raise RuntimeError('xmatch: crossmatch did not return any match')
 
     if verbose_figures:
-        fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
+        plt.clf()
         if len(secondary_cat.ra) >= len(primary_cat.ra):
             primary_catalog_plot_symbol = 'bo'
             # primary_catalog_plot_mfc = None
@@ -392,23 +392,23 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
             primary_zorder = -50
             secondary_zorder = -40
 
-        pl.plot(secondary_cat.ra, secondary_cat.dec, secondary_catalog_plot_symbol,
+        plt.plot(secondary_cat.ra, secondary_cat.dec, secondary_catalog_plot_symbol,
                 label='secondary catalog', zorder=secondary_zorder, mfc=None)
-        pl.plot(primary_cat.ra, primary_cat.dec, primary_catalog_plot_symbol,
+        plt.plot(primary_cat.ra, primary_cat.dec, primary_catalog_plot_symbol,
                 label='primary catalog', zorder=primary_zorder, mfc='none', ms=10, mew=2)
-        pl.plot(secondary_cat.ra[index_secondary_cat], secondary_cat.dec[index_secondary_cat], 'kx',
+        plt.plot(secondary_cat.ra[index_secondary_cat], secondary_cat.dec[index_secondary_cat], 'kx',
                 label='xmatch sources', zorder=-20)
-        ax = pl.gca()
+        ax = plt.gca()
         ax.invert_xaxis()
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-        pl.xlabel('RA (deg)')
-        pl.ylabel('Dec (deg)')
-        pl.legend()
-        pl.show()
+        plt.xlabel('RA (deg)')
+        plt.ylabel('Dec (deg)')
+        plt.legend()
         if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_onSky.pdf' % name_seed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
     # define quantities for quality check and further processing
     cosDecFactor = np.cos(np.deg2rad(primary_cat.dec[index_primary_cat]))
@@ -434,20 +434,20 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
         n_bins = np.int(len(xmatchDistance) / 5)
 
         # xmatch diagnostics
-        pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k'); pl.clf()
-        pl.subplot(1, 2, 1)
-        pl.hist(xmatchDistance.value, n_bins)
-        pl.xlabel('Crossmatch distance (%s)' % (xmatchDistance.unit))
-        pl.subplot(1, 2, 2)
-        pl.hist(U0.value * UV_factor, n_bins, color='b', label='X')
-        pl.hist(V0.value * UV_factor, n_bins, color='r', alpha=0.5, label='Y')
-        pl.xlabel('Coordinate Difference in X and Y {}'.format(u.milliarcsecond))
-        pl.legend(loc='best')
+        plt.figure(figsize=(12, 6), facecolor='w', edgecolor='k'); plt.clf()
+        plt.subplot(1, 2, 1)
+        plt.hist(xmatchDistance.value, n_bins)
+        plt.xlabel('Crossmatch distance (%s)' % (xmatchDistance.unit))
+        plt.subplot(1, 2, 2)
+        plt.hist(U0.value * UV_factor, n_bins, color='b', label='X')
+        plt.hist(V0.value * UV_factor, n_bins, color='r', alpha=0.5, label='Y')
+        plt.xlabel('Coordinate Difference in X and Y {}'.format(u.milliarcsecond))
+        plt.legend(loc='best')
         fig.tight_layout(h_pad=0.0)
-        pl.show()
         if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_distance.pdf' % name_seed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
         if 0 == 1:
             zeroPointIndex = np.where(np.abs(diff_de) == np.median(np.abs(diff_de)))[0][0]
@@ -481,21 +481,21 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
                 np.median(DistanceModulus).to(u.milliarcsecond)))
 
 
-            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-            pl.clf()
-            pl.hist(U.to(u.milliarcsecond), 100, color='r')
-            pl.hist(V.to(u.milliarcsecond), 100, color='b')
-            pl.show()
+            plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+            plt.clf()
+            plt.hist(U.to(u.milliarcsecond), 100, color='r')
+            plt.hist(V.to(u.milliarcsecond), 100, color='b')
+            plt.show()
 
-            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-            pl.clf()
-            pl.plot(DistanceModulus.to(u.milliarcsecond), naiveDistanceModulus.to(u.milliarcsecond), 'b.')
-            pl.show()
+            plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+            plt.clf()
+            plt.plot(DistanceModulus.to(u.milliarcsecond), naiveDistanceModulus.to(u.milliarcsecond), 'b.')
+            plt.show()
 
-        fig = pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(12, 6), facecolor='w', edgecolor='k')
+        plt.clf()
 
-        pl.subplot(1, 2, 1)
+        plt.subplot(1, 2, 1)
         #         headlength = 10
         forGaia = 1
         if forGaia:
@@ -503,54 +503,52 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
             scale2 = 0.0005
 
         if forGaia:
-            Q = pl.quiver(X, Y, U0, V0, angles='xy', scale_units='xy', scale=scale1)
+            Q = plt.quiver(X, Y, U0, V0, angles='xy', scale_units='xy', scale=scale1)
         else:
-            Q = pl.quiver(X, Y, U0, V0, angles='xy', scale_units='xy')
+            Q = plt.quiver(X, Y, U0, V0, angles='xy', scale_units='xy')
 
-        # Q = pl.quiver(X[::3],Y[::3], U0[::3], V0[::3], angles='xy',units='inches')
+        # Q = plt.quiver(X[::3],Y[::3], U0[::3], V0[::3], angles='xy',units='inches')
 
-
-        gmc_ra = np.mean(pl.xlim())
-        gmc_de = np.mean(pl.ylim())
+        gmc_ra = np.mean(plt.xlim())
+        gmc_de = np.mean(plt.ylim())
         #         cosdec = np.cos(np.deg2rad(gmc_de))
-        size_deg = pl.xlim()[1] - gmc_ra - 0.1
+        size_deg = plt.xlim()[1] - gmc_ra - 0.1
         #         ra_min = gmc_ra - (size_deg / cosdec)
         #         ra_max = gmc_ra + (size_deg / cosdec)
         de_min = gmc_de - size_deg
         de_max = gmc_de + size_deg
 
-        pl.ylim((de_min, de_max))
+        plt.ylim((de_min, de_max))
         #         1/0
-        ax = pl.gca()  # ;
-        # pl.axis('equal')
+        ax = plt.gca()  # ;
+        # plt.axis('equal')
         ax.invert_xaxis()
         ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 
-        pl.xlabel('Right Ascension (deg)');
-        pl.ylabel('Declination (deg)');
-        pl.title('Difference between catalog positions')
+        plt.xlabel('Right Ascension (deg)');
+        plt.ylabel('Declination (deg)');
+        plt.title('Difference between catalog positions')
 
-        pl.subplot(1, 2, 2)
+        plt.subplot(1, 2, 2)
         if forGaia:
-            Q = pl.quiver(X, Y, U, V, angles='xy', scale_units='xy', scale=scale2)
+            Q = plt.quiver(X, Y, U, V, angles='xy', scale_units='xy', scale=scale2)
         else:
-            Q = pl.quiver(X, Y, U, V, angles='xy', scale_units='xy')
+            Q = plt.quiver(X, Y, U, V, angles='xy', scale_units='xy')
 
-        # Q = pl.quiver(X[::3],Y[::3], U[::3], V[::3], angles='xy',units='inches')
-        pl.ylim((de_min, de_max))
-        ax = pl.gca()  # ;
-        # pl.axis('equal')
+        # Q = plt.quiver(X[::3],Y[::3], U[::3], V[::3], angles='xy',units='inches')
+        plt.ylim((de_min, de_max))
+        ax = plt.gca()  # ;
+        # plt.axis('equal')
         ax.invert_xaxis()
-        pl.xlabel('Right Ascension (deg)');
-        pl.ylabel('Declination (deg)');
-        pl.title('Average offset subtracted')
+        plt.xlabel('Right Ascension (deg)');
+        plt.ylabel('Declination (deg)');
+        plt.title('Average offset subtracted')
         fig.tight_layout(h_pad=0.0)
-        pl.show()
-
         if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_distortionActual.pdf' % name_seed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0, dpi=300)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0, dpi=300)
+        plt.show()
 
     return index_primary_cat, index_secondary_cat, d2d, d3d, diff_raStar, diff_de
 
