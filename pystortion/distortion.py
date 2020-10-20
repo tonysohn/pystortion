@@ -359,10 +359,14 @@ class lazAstrometryCoefficients(object):
             normFact = np.sum(n) * np.mean(np.diff(bins));
             y = norm.pdf(bins, mu, sigma)
             l = axs[i].plot(bins, y*normFact, 'k-', linewidth=2, color=linecolors[i],
-                            label='{0:s}: $\mu$={2:1.3f}$\pm${1:1.3f}'.format(labels[i], sigma, mu))
+                            label='{0:s}: $\mu$={2:1.3f}$\pm${1:1.3f} mas'.format(labels[i], sigma, mu))
             axs[i].set_xlabel('Residual O-C (mas)')
             axs[i].set_ylabel('N')
             axs[i].legend(loc="upper left")
+        
+        if save_plot == 1:
+            figName = os.path.join(outDir, '%s_distortionResidualsHistogram.pdf' % nameSeed)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
         plt.close()
 
