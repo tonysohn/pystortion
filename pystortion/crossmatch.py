@@ -409,6 +409,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
             figName = os.path.join(out_dir, '%s_xmatch_onSky.pdf' % name_seed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         #plt.show()
+        plt.close()
 
     # define quantities for quality check and further processing
     cosDecFactor = np.cos(np.deg2rad(primary_cat.dec[index_primary_cat]))
@@ -448,6 +449,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
             figName = os.path.join(out_dir, '%s_xmatch_distance.pdf' % name_seed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
         if 0 == 1:
             zeroPointIndex = np.where(np.abs(diff_de) == np.median(np.abs(diff_de)))[0][0]
@@ -486,11 +488,13 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
             plt.hist(U.to(u.milliarcsecond), 100, color='r')
             plt.hist(V.to(u.milliarcsecond), 100, color='b')
             plt.show()
+            plt.close()
 
             plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
             plt.clf()
             plt.plot(DistanceModulus.to(u.milliarcsecond), naiveDistanceModulus.to(u.milliarcsecond), 'b.')
             plt.show()
+            plt.close()
 
         fig = plt.figure(figsize=(12, 6), facecolor='w', edgecolor='k')
         plt.clf()
@@ -549,6 +553,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
             figName = os.path.join(out_dir, '%s_xmatch_distortionActual.pdf' % name_seed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0, dpi=300)
         #plt.show()
+        plt.close()
 
     return index_primary_cat, index_secondary_cat, d2d, d3d, diff_raStar, diff_de
 

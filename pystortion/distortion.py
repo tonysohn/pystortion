@@ -372,6 +372,7 @@ class lazAstrometryCoefficients(object):
             figName = os.path.join(outDir, '%s_distortionResidualsOnSky.pdf' % nameSeed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
 
         cm = plt.cm.get_cmap('RdYlBu')
@@ -410,6 +411,7 @@ class lazAstrometryCoefficients(object):
             figName = os.path.join(outDir, '%s_residuals_sky.pdf' % nameSeed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
 
 
@@ -445,6 +447,7 @@ class lazAstrometryCoefficients(object):
             figName = os.path.join(outDir, '%s_distortionResidualsVsRADec.pdf' % nameSeed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
 
 
@@ -456,6 +459,7 @@ class lazAstrometryCoefficients(object):
             plt.ylabel('Residual O-C Y ({})'.format(omc_unit))
             plt.xlabel('Residual O-C X ({})'.format(omc_unit))
             plt.show()
+            plt.close()
 
             for name in self.colNames:
                 # if name in 'x y CHIP_EXTENSION'.split():
@@ -473,6 +477,7 @@ class lazAstrometryCoefficients(object):
                 plt.xlabel(name)
                 plt.ylabel('Residual O-C ({})'.format(omc_unit))
                 plt.show()
+                plt.close()
 
 
 
@@ -545,6 +550,7 @@ class lazAstrometryCoefficients(object):
             figName = os.path.join(outDir, '%s_distortionModel.pdf' % nameSeed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
     def getHullPath(self, points):
         hull = scipy.spatial.ConvexHull(points)
@@ -827,11 +833,13 @@ class lazAstrometryCoefficients(object):
             #             plt.text(0.05,0.05,'Median %1.1e\nRMS %1.1e' % (np.ma.median(scale),np.ma.std(scale)), ha='left', va='center', transform=ax.transAxes)
             #             plt.colorbar(format='%1.1e')
             plt.show()
+            plt.close()
         fig.tight_layout(h_pad=0.0)
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_rotation.pdf' % (nameSeed))
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
     def plotLinearTerms(self, evaluation_frame_number, outDir, nameSeed, referencePointForProjection_Pix, save_plot=1,
                         xy_unit='undefined', xy_scale=1.):
@@ -968,6 +976,7 @@ class lazAstrometryCoefficients(object):
             figName = os.path.join(outDir, '%s_LinearTerms.pdf' % (nameSeed))
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
         # now figure showing everythin that is not offset, global scale, or global rotation
         # total offset due to k>4
@@ -1019,6 +1028,7 @@ class lazAstrometryCoefficients(object):
             figName = os.path.join(outDir, '%s_nonLinearTerms.pdf' % (nameSeed))
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
     def getPartialDerivatives(self, polynomial, evaluation_frame_number):
         ii = evaluation_frame_number
@@ -1132,6 +1142,7 @@ class lazAstrometryCoefficients(object):
                 figName = os.path.join(outDir, '%s_globalscale.pdf' % (nameSeed))
                 plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
             plt.show()
+            plt.close()
 
         for crossterm in [0, 1]:
             fig = plt.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
@@ -1185,6 +1196,7 @@ class lazAstrometryCoefficients(object):
                 figName = os.path.join(outDir, '%s_scale_%s.pdf' % (nameSeed, crossStr))
                 plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
             plt.show()
+            plt.close()
 
     def get_polynomial(self, Cs, P, partial_mode=0, include_all_higher_orders=True):
         """Return a polynomial model.
@@ -1378,7 +1390,7 @@ class lazAstrometryCoefficients(object):
                     figName = os.path.join(outDir, '%s_mode%d_distortionSkyNew.pdf' % (nameSeed, mode))
                     plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
                 plt.show()
-                    #             1/0
+                plt.close()
 
         modes = np.arange(self.k + 1)[::2]
         fig = plt.figure(figsize=(12, np.ceil(len(modes) / 3.) * 3), facecolor='w', edgecolor='k')
@@ -1421,6 +1433,7 @@ class lazAstrometryCoefficients(object):
             figName = os.path.join(outDir, '%s_distortion.pdf' % nameSeed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
     def correctCatalogForDistortion(self, evaluation_frame_number, ra, dec, referencePointForProjection_RADec, scale):
         ii = evaluation_frame_number
@@ -1472,6 +1485,7 @@ class lazAstrometryCoefficients(object):
             plt.subplot(2, 1, 1)
             plt.title('Distortion-fit residuals of {} well-behaved stars (|O-C|<{:2.2f})'.format(number_of_stars-len(bad_star_index), absolute_threshold))
             plt.show()
+            plt.close()
 
         # plot RMS
         if 0:
@@ -1496,6 +1510,7 @@ class lazAstrometryCoefficients(object):
                 # plt.plot(i, np.std(residuals_y[index]), 'ro')
             plt.xlabel('Frame number')
             plt.show()
+            plt.close()
 
 
         return bad_star_index
@@ -1690,6 +1705,7 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
             figure_name = os.path.join(plot_dir, '{}_distortion_parameters_per_frame.pdf'.format(name_seed))
             plt.savefig(figure_name, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
 
 
     distortion_statistics = Table()
@@ -1733,6 +1749,7 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
                                        '{}_distortion_residualrms_per_frame.pdf'.format(name_seed))
             plt.savefig(figure_name, transparent=True, bbox_inches='tight', pad_inches=0)
         plt.show()
+        plt.close()
         # 1/0
 
 ########################################################################################
@@ -2373,6 +2390,7 @@ def fitDistortion(mp, k, reference_frame_number=0, evaluation_frame_number=1, ta
         #       ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         plt.title('Difference between catalog positions')
         plt.show()
+        plt.close()
 
         fig = plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
         plt.clf()
@@ -2382,6 +2400,7 @@ def fitDistortion(mp, k, reference_frame_number=0, evaluation_frame_number=1, ta
         plt.legend(loc='best')
         fig.tight_layout(h_pad=0.0)
         plt.show()
+        plt.close()
 
         plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
         plt.clf()
@@ -2391,6 +2410,7 @@ def fitDistortion(mp, k, reference_frame_number=0, evaluation_frame_number=1, ta
         ax.invert_xaxis()
         plt.title('Catalog positions')
         plt.show()
+        plt.close()
 
     if (k == 2) & verbose:
         # has to use reduced coordinates, otherwise yields senseless results
@@ -2637,6 +2657,7 @@ def testDistortionFit():
         plt.ylabel('Declination (deg)')
         plt.title('Difference between catalog positions')
         plt.show()
+        plt.close()
 
     # display vector plot
     X, Y = T['ra'], T['dec']
@@ -2654,6 +2675,7 @@ def testDistortionFit():
     plt.ylabel('Declination (deg)')
     plt.title('Difference between catalog positions')
     plt.show()
+    plt.close()
 
     Nstars = len(T)
     colNames = np.array(['tmp1', 'tmp2', 'x', 'y', 'tmp3', 'tmp4', 'id', 'original_id', 'sigma_x', 'sigma_y'])
@@ -2800,6 +2822,7 @@ def testDistortionFitLMC():
     plt.axis('equal')
     plt.title('Difference between catalog positions')
     plt.show()
+    plt.close()
 
     colNames = np.array(['x', 'y', 'id', 'original_id', 'sigma_x', 'sigma_y'])
     p = np.zeros((2, Nstars, len(colNames)))
