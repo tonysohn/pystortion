@@ -28,6 +28,7 @@ from astropy.table import hstack as tablehstack
 
 from astropy.coordinates import SkyCoord
 import scipy
+from scipy.stats import norm
 
 import sympy
 from sympy.abc import x, y
@@ -332,7 +333,7 @@ class lazAstrometryCoefficients(object):
             if (target_number_index is not None) and (target_number_index in plot_index):
                 plot_index = np.delete(plot_index, np.where(plot_index==target_number_index)[0])
 
-        xlabl = 'X (%s)' % xy_unit
+        xlabl = 'X (%s)' % xy_unit 
         ylabl = 'Y (%s)' % xy_unit
 
         U = self.resx[ii].residuals[plot_index] * omc_scale
@@ -342,9 +343,28 @@ class lazAstrometryCoefficients(object):
             print('maximum residual amplitude %3.3f ' % (np.max(np.sqrt(U ** 2 + V ** 2))))
 
         omc = np.vstack((U, V)).T
-        plotting_helpers.histogram_with_gaussian_fit(omc, facecolors=['b', 'r'], linecolors=['b', 'r'], labels=['X', 'Y'],
-                                    xlabel='Residual O-C (%s)' % omc_unit, save_plot=save_plot, out_dir=outDir,
-                                    name_seed=nameSeed, separate_panels=True, titles=title, **kwargs)
+### Removing uhelpers dependency
+#        plotting_helpers.histogram_with_gaussian_fit(omc, facecolors=['b', 'r'], linecolors=['b', 'r'], labels=['X', 'Y'],
+#                                    xlabel='Residual O-C (%s)' % omc_unit, save_plot=save_plot, out_dir=outDir,
+#                                    name_seed=nameSeed, separate_panels=True, titles=title, **kwargs)
+
+        facecolors=['b', 'r']
+        linecolors=['b', 'r']
+        labels=['X', 'Y']
+        fig, axs = plt.subplots(1,2, figsize=(12,5), tight_layout=True)
+        for i in np.arange(2):
+            data = omc[:,i]
+            mu, sigma = norm.fit(data)
+            n, bins, patches = axs[i].hist(data, facecolor=facecolors[i], color=linecolors[i], histtype='stepfilled', alpha=0.5)
+            normFact = np.sum(n) * np.mean(np.diff(bins));
+            y = norm.pdf(bins, mu, sigma)
+            l = axs[i].plot(bins, y*normFact, 'k-', linewidth=2, color=linecolors[i],
+                         label='{0:s}: $\mu$={2:1.3f}$\pm${1:1.3f}'.format(labels[i], sigma, mu))
+            axs[i].set_xlabel('Residual O-C (mas) in %',format(labels[i]))
+            axs[i].set_ylabel('N')
+        plt.show()
+        plt.close()
+
 
         # plot residuals on sky
         fig = plt.figure(figsize=(6, 6), facecolor='w', edgecolor='k')
