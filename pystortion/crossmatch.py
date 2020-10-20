@@ -408,7 +408,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
         if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_onSky.pdf' % name_seed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
-        plt.show()
+        #plt.show()
 
     # define quantities for quality check and further processing
     cosDecFactor = np.cos(np.deg2rad(primary_cat.dec[index_primary_cat]))
@@ -548,7 +548,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
         if saveplot:
             figName = os.path.join(out_dir, '%s_xmatch_distortionActual.pdf' % name_seed)
             plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0, dpi=300)
-        plt.show()
+        #plt.show()
 
     return index_primary_cat, index_secondary_cat, d2d, d3d, diff_raStar, diff_de
 

@@ -20,7 +20,7 @@ import os
 import sys
 import copy
 import numpy as np
-import pylab as pl
+import matplotlib.pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
 from astropy import units as u
 from astropy.table import Table, Column
@@ -347,115 +347,115 @@ class lazAstrometryCoefficients(object):
                                     name_seed=nameSeed, separate_panels=True, titles=title, **kwargs)
 
         # plot residuals on sky
-        fig = pl.figure(figsize=(6, 6), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(6, 6), facecolor='w', edgecolor='k')
+        plt.clf()
         # xy = np.ma.masked_array(self.p[ii, :, [ix, iy]], mask=[self.p[ii, :, [ix, iy]] == 0]) * xy_scale
         xy = np.ma.masked_array(self.p[ii, plot_index, np.array([ix, iy])[:, np.newaxis]], mask=[self.p[ii, plot_index, np.array([ix, iy])[:, np.newaxis]] == 0]) * xy_scale
         # xy = self.p[ii, plot_index, [ix, iy]] * xy_scale
         # xy = self.p[ii, plot_index, [ix, iy]] * xy_scale
 
-        pl.quiver(xy[0], xy[1], U, V, angles='xy')
-        pl.axis('tight')
-        pl.axis('equal')
-        pl.xlabel('X (%s)' % xy_unit)
-        pl.ylabel('Y (%s)' % xy_unit)
+        plt.quiver(xy[0], xy[1], U, V, angles='xy')
+        plt.axis('tight')
+        plt.axis('equal')
+        plt.xlabel('X (%s)' % xy_unit)
+        plt.ylabel('Y (%s)' % xy_unit)
         title_string = 'Residuals (k={})'.format(self.k)
         if title is not None:
             title_string = '{}, {}'.format(title, title_string)
-        pl.title(title_string)
+        plt.title(title_string)
         if plot_apertures is not None:
-            ax = pl.gca()
+            ax = plt.gca()
             for aperture in plot_apertures:
                 aperture.plot(ax=ax, fill_color='none', color='0.7', label=True)
 
-        pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_distortionResidualsOnSky.pdf' % nameSeed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
 
-        cm = pl.cm.get_cmap('RdYlBu')
-        #         cm = pl.cm.get_cmap('Greys')
+        cm = plt.cm.get_cmap('RdYlBu')
+        #         cm = plt.cm.get_cmap('Greys')
         axes = ['X', 'Y']
-        fig = pl.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
+        plt.clf()
         for j, axis in enumerate(axes):
-            pl.subplot(1, 2, j + 1)
+            plt.subplot(1, 2, j + 1)
             if axis == 'X':
                 z = U
             elif axis == 'Y':
                 z = V
             if 1 == 0:
                 maxResidual = 3.
-                sc = pl.scatter(xy[0], xy[1], c=z, cmap=cm, edgecolors='face', alpha=0.8, vmin=-maxResidual,
+                sc = plt.scatter(xy[0], xy[1], c=z, cmap=cm, edgecolors='face', alpha=0.8, vmin=-maxResidual,
                                 vmax=maxResidual, s=10)  # , vmin=0, vmax=20, s=35
             else:
-                sc = pl.scatter(xy[0], xy[1], c=z, cmap=cm, edgecolors='face', alpha=0.8,
+                sc = plt.scatter(xy[0], xy[1], c=z, cmap=cm, edgecolors='face', alpha=0.8,
                                 s=20)  # , vmin=0, vmax=20, s=35
-            pl.colorbar(sc)
-            pl.title('Residuals in %s' % (axis))
-            pl.axis('equal')
-            pl.xlabel(xlabl)
-            pl.ylabel(ylabl)
+            plt.colorbar(sc)
+            plt.title('Residuals in %s' % (axis))
+            plt.axis('equal')
+            plt.xlabel(xlabl)
+            plt.ylabel(ylabl)
             if plot_apertures is not None:
-                ax = pl.gca()
+                ax = plt.gca()
                 for aperture in plot_apertures:
                     aperture.plot(ax=ax, fill_color='none', color='0.7')
 
         fig.tight_layout(h_pad=0.0)
         if title is not None:
-            pl.title(title)
+            plt.title(title)
 
-        pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_residuals_sky.pdf' % nameSeed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
 
 
         n_moving_average = 500
-        fig = pl.figure(figsize=(10, 5), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(10, 5), facecolor='w', edgecolor='k')
+        plt.clf()
         for jj, axis_name in enumerate(['X', 'Y']):
 
-            pl.subplot(1, 2, jj+1)
+            plt.subplot(1, 2, jj+1)
             x_plot = xy[jj]
             y_plot = getattr(self, 'res{}'.format(axis_name.lower()))[ii].residuals[plot_index] * omc_scale
             sort_index = np.argsort(x_plot)
             if jj == 0:
-                pl.plot(x_plot, y_plot, 'b.')
+                plt.plot(x_plot, y_plot, 'b.')
             else:
-                pl.plot(x_plot, y_plot, 'r.')
-            pl.plot(x_plot[sort_index], moving_average(y_plot[sort_index], n=n_moving_average), 'k-')
-            pl.xlabel('{} ({})'.format(axis_name, xy_unit))
-            pl.ylabel('Residuals in {} ({})'.format(axis_name, omc_unit))
+                plt.plot(x_plot, y_plot, 'r.')
+            plt.plot(x_plot[sort_index], moving_average(y_plot[sort_index], n=n_moving_average), 'k-')
+            plt.xlabel('{} ({})'.format(axis_name, xy_unit))
+            plt.ylabel('Residuals in {} ({})'.format(axis_name, omc_unit))
             if (jj==0) & (title is not None):
-                pl.title(title)
+                plt.title(title)
 
-        # pl.plot(xy[0], moving_average(self.resx[ii].residuals[plot_index] * omc_scale, n=n_moving_average), 'k-')
-        # pl.xlabel('X (%s)' % xy_unit)
-        # pl.ylabel('Residuals in X (%s)' % omc_unit)
-        # pl.subplot(1, 2, 2)
-        # pl.plot(xy[1], self.resy[ii].residuals[plot_index] * omc_scale, 'r.')
-        # pl.plot(xy[1], moving_average(self.resy[ii].residuals[plot_index] * omc_scale, n=n_moving_average), 'k-')
-        # pl.xlabel('Y (%s)' % xy_unit)
-        # pl.ylabel('Residuals in Y (%s)' % omc_unit)
+        # plt.plot(xy[0], moving_average(self.resx[ii].residuals[plot_index] * omc_scale, n=n_moving_average), 'k-')
+        # plt.xlabel('X (%s)' % xy_unit)
+        # plt.ylabel('Residuals in X (%s)' % omc_unit)
+        # plt.subplot(1, 2, 2)
+        # plt.plot(xy[1], self.resy[ii].residuals[plot_index] * omc_scale, 'r.')
+        # plt.plot(xy[1], moving_average(self.resy[ii].residuals[plot_index] * omc_scale, n=n_moving_average), 'k-')
+        # plt.xlabel('Y (%s)' % xy_unit)
+        # plt.ylabel('Residuals in Y (%s)' % omc_unit)
         fig.tight_layout(h_pad=0.0)
-        pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_distortionResidualsVsRADec.pdf' % nameSeed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
 
 
         if plot_correlations:
-            fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
-            pl.clf()
-            pl.plot(U, V, 'bo', label='X')
-            pl.title('Distortion Residuals X vs Y')
-            pl.ylabel('Residual O-C Y ({})'.format(omc_unit))
-            pl.xlabel('Residual O-C X ({})'.format(omc_unit))
-            pl.show()
+            fig = plt.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
+            plt.clf()
+            plt.plot(U, V, 'bo', label='X')
+            plt.title('Distortion Residuals X vs Y')
+            plt.ylabel('Residual O-C Y ({})'.format(omc_unit))
+            plt.xlabel('Residual O-C X ({})'.format(omc_unit))
+            plt.show()
 
             for name in self.colNames:
                 # if name in 'x y CHIP_EXTENSION'.split():
@@ -465,14 +465,14 @@ class lazAstrometryCoefficients(object):
             # 'CHIP_EXTENSION', 'sigma_x', 'sigma_y', 'CATALOG_NUMBER',
             # 'artificial', 'usable_flag'
                 p_index = np.where(self.colNames == name)[0][0]
-                fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
-                pl.clf()
-                pl.plot(self.p[ii, plot_index, p_index], U, 'b.', label='X')
-                pl.plot(self.p[ii, plot_index, p_index], V, 'r.', label='Y')
-                pl.title('Distortion Residuals vs {}'.format(name))
-                pl.xlabel(name)
-                pl.ylabel('Residual O-C ({})'.format(omc_unit))
-                pl.show()
+                fig = plt.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
+                plt.clf()
+                plt.plot(self.p[ii, plot_index, p_index], U, 'b.', label='X')
+                plt.plot(self.p[ii, plot_index, p_index], V, 'r.', label='Y')
+                plt.title('Distortion Residuals vs {}'.format(name))
+                plt.xlabel(name)
+                plt.ylabel('Residual O-C ({})'.format(omc_unit))
+                plt.show()
 
 
 
@@ -523,28 +523,28 @@ class lazAstrometryCoefficients(object):
         ylabl = 'Y (%s)' % xy_unit
         xy = np.ma.masked_array(self.p[ii, :, [ix, iy]], mask=[self.p[ii, :, [ix, iy]] == 0]) * xy_scale
 
-        fig = pl.figure(figsize=(12, 6), facecolor='w', edgecolor='k')
-        pl.clf()
-        pl.subplot(1, 2, 1)
-        pl.quiver(xy[0], xy[1], U[ii, :], V[ii, :], angles='xy')
-        #         pl.streamplot(xy[0],xy[1], U[ii,:], V[ii,:])
+        fig = plt.figure(figsize=(12, 6), facecolor='w', edgecolor='k')
+        plt.clf()
+        plt.subplot(1, 2, 1)
+        plt.quiver(xy[0], xy[1], U[ii, :], V[ii, :], angles='xy')
+        #         plt.streamplot(xy[0],xy[1], U[ii,:], V[ii,:])
 
-        pl.axis('equal')
-        pl.xlabel(xlabl)
-        pl.ylabel(ylabl)
-        pl.title('Distortion model (k=%d)' % self.k)
-        pl.subplot(1, 2, 2)
-        pl.quiver(xy[0], xy[1], mU[ii, :], mV[ii, :], angles='xy')
-        #         pl.streamplot(xy[0],xy[1], mU[ii,:], mV[ii,:])
-        pl.axis('equal')
-        pl.xlabel(xlabl)
-        pl.ylabel(ylabl)
-        pl.title('Distortion model (k=%d), shift subtracted' % self.k)
+        plt.axis('equal')
+        plt.xlabel(xlabl)
+        plt.ylabel(ylabl)
+        plt.title('Distortion model (k=%d)' % self.k)
+        plt.subplot(1, 2, 2)
+        plt.quiver(xy[0], xy[1], mU[ii, :], mV[ii, :], angles='xy')
+        #         plt.streamplot(xy[0],xy[1], mU[ii,:], mV[ii,:])
+        plt.axis('equal')
+        plt.xlabel(xlabl)
+        plt.ylabel(ylabl)
+        plt.title('Distortion model (k=%d), shift subtracted' % self.k)
         fig.tight_layout(h_pad=0.0)
-        pl.show()
         if saveplot == 1:
             figName = os.path.join(outDir, '%s_distortionModel.pdf' % nameSeed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
     def getHullPath(self, points):
         hull = scipy.spatial.ConvexHull(points)
@@ -598,8 +598,8 @@ class lazAstrometryCoefficients(object):
         if hasattr(self, 'x_footprint') is False:
             self._set_footprint_grid(n_grid=10)
 
-        # fig = pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-        # pl.clf()
+        # fig = plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+        # plt.clf()
 
         data = {}
         data['reference'] = {'x': self.x_footprint, 'y': self.y_footprint}
@@ -696,8 +696,8 @@ class lazAstrometryCoefficients(object):
         #         def compose2(f1,f2):
         #             return lambda x,y: np.rad2deg(np.arctan2(f1(x,y),f2(x,y)))
 
-        fig = pl.figure(figsize=(12, 16), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(12, 16), facecolor='w', edgecolor='k')
+        plt.clf()
         referencePointRotation = np.zeros(2)
         referencePointScale = np.zeros(2)
         for j, axis in enumerate(axes):
@@ -776,7 +776,7 @@ class lazAstrometryCoefficients(object):
 
             titles = np.array(['Total offset', 'Rotation offset', 'Scale offset'])
             for iii in [0, 1, 2]:
-                ax = pl.subplot(3, 2, iii * 2 + j + 1)
+                ax = plt.subplot(3, 2, iii * 2 + j + 1)
 
                 U = np.ma.masked_array(UU[iii, :, :], mask=~goodMeshMask)
                 V = np.ma.masked_array(VV[iii, :, :], mask=~goodMeshMask)
@@ -788,17 +788,17 @@ class lazAstrometryCoefficients(object):
                 scale_min = np.min(z)
                 scale_max = np.max(z)
 
-                pl.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, z, cmap='RdBu', vmin=scale_min, vmax=scale_max)
+                plt.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, z, cmap='RdBu', vmin=scale_min, vmax=scale_max)
 
-                #                 sc = pl.scatter(x_mesh.flatten()[goodMask], y_mesh.flatten()[goodMask], c=z[goodMask], cmap=cm,edgecolors='face',alpha=1.0,s=4) # , vmin=0, vmax=20, s=35
-                #                 pl.colorbar(sc)
-                pl.text(0.05, 0.07, 'Median %3.2f\nRMS %3.2f' % (np.ma.median(z), np.ma.std(z)), ha='left', va='center',
+                #                 sc = plt.scatter(x_mesh.flatten()[goodMask], y_mesh.flatten()[goodMask], c=z[goodMask], cmap=cm,edgecolors='face',alpha=1.0,s=4) # , vmin=0, vmax=20, s=35
+                #                 plt.colorbar(sc)
+                plt.text(0.05, 0.07, 'Median %3.2f\nRMS %3.2f' % (np.ma.median(z), np.ma.std(z)), ha='left', va='center',
                         transform=ax.transAxes)
-                pl.title('%s of k=4 terms in %s' % (titles[iii], axis))
-                pl.axis('equal')
-                pl.xlabel(xlabl)
-                pl.ylabel(ylabl)
-                cbar = pl.colorbar()
+                plt.title('%s of k=4 terms in %s' % (titles[iii], axis))
+                plt.axis('equal')
+                plt.xlabel(xlabl)
+                plt.ylabel(ylabl)
+                cbar = plt.colorbar()
                 cbar.ax.get_yaxis().labelpad = 10
                 cbar.set_label('Amplitude (mas)', rotation=270)
 
@@ -814,24 +814,24 @@ class lazAstrometryCoefficients(object):
             #             scale_min = np.min(scale)
             #             scale_max = np.max(scale)
             #             1/0
-            #             pl.pcolor(x_mesh*xy_scale, y_mesh*xy_scale, scale, cmap='RdBu', vmin=scale_min, vmax=scale_max)
-            #             pl.plot(referencePointForProjection_Pix[0],referencePointForProjection_Pix[1],'ko')
+            #             plt.pcolor(x_mesh*xy_scale, y_mesh*xy_scale, scale, cmap='RdBu', vmin=scale_min, vmax=scale_max)
+            #             plt.plot(referencePointForProjection_Pix[0],referencePointForProjection_Pix[1],'ko')
             #             if crossterm==0:
             #                 crossStr = ''
             #             else:
             #                 crossStr = 'crossterm'
-            #             pl.title('%s-rotation reference=%1.6f deg'%(axis,referencePointRotation[j]))
-            #             pl.axis('equal')
-            #             pl.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
-            #             pl.xlabel(xlabl)         pl.ylabel(ylabl)
-            #             pl.text(0.05,0.05,'Median %1.1e\nRMS %1.1e' % (np.ma.median(scale),np.ma.std(scale)), ha='left', va='center', transform=ax.transAxes)
-            #             pl.colorbar(format='%1.1e')
-            pl.show()
+            #             plt.title('%s-rotation reference=%1.6f deg'%(axis,referencePointRotation[j]))
+            #             plt.axis('equal')
+            #             plt.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
+            #             plt.xlabel(xlabl)         plt.ylabel(ylabl)
+            #             plt.text(0.05,0.05,'Median %1.1e\nRMS %1.1e' % (np.ma.median(scale),np.ma.std(scale)), ha='left', va='center', transform=ax.transAxes)
+            #             plt.colorbar(format='%1.1e')
+            plt.show()
         fig.tight_layout(h_pad=0.0)
-        pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_rotation.pdf' % (nameSeed))
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
     def plotLinearTerms(self, evaluation_frame_number, outDir, nameSeed, referencePointForProjection_Pix, save_plot=1,
                         xy_unit='undefined', xy_scale=1.):
@@ -935,12 +935,12 @@ class lazAstrometryCoefficients(object):
         VV[2, :, :] = V_scale
         VV[3, :, :] = V_nonlin
 
-        fig = pl.figure(figsize=(10, 16), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(10, 16), facecolor='w', edgecolor='k')
+        plt.clf()
         titles = np.array(['Total offset', 'Rotation offset', 'Scale offset', 'Skew offset'])
         for j, axis in enumerate(axes):
             for iii in [0, 1, 2, 3]:
-                ax = pl.subplot(4, 2, iii * 2 + j + 1)
+                ax = plt.subplot(4, 2, iii * 2 + j + 1)
 
                 U = np.ma.masked_array(UU[iii, :, :], mask=~goodMeshMask)
                 V = np.ma.masked_array(VV[iii, :, :], mask=~goodMeshMask)
@@ -952,22 +952,22 @@ class lazAstrometryCoefficients(object):
                 scale_min = np.min(z)
                 scale_max = np.max(z)
 
-                pl.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, z, cmap='RdBu', vmin=scale_min, vmax=scale_max)
-                pl.text(0.05, 0.07, 'Median %3.2f\nRMS %3.2f' % (np.ma.median(z), np.ma.std(z)), ha='left', va='center',
+                plt.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, z, cmap='RdBu', vmin=scale_min, vmax=scale_max)
+                plt.text(0.05, 0.07, 'Median %3.2f\nRMS %3.2f' % (np.ma.median(z), np.ma.std(z)), ha='left', va='center',
                         transform=ax.transAxes)
-                pl.title('%s of k=4 terms in %s' % (titles[iii], axis))
-                pl.axis('equal')
-                pl.xlabel(xlabl)
-                pl.ylabel(ylabl)
-                cbar = pl.colorbar()
+                plt.title('%s of k=4 terms in %s' % (titles[iii], axis))
+                plt.axis('equal')
+                plt.xlabel(xlabl)
+                plt.ylabel(ylabl)
+                cbar = plt.colorbar()
                 cbar.ax.get_yaxis().labelpad = 10
                 cbar.set_label('Amplitude (mas)', rotation=270)
 
         fig.tight_layout(h_pad=0.0)
-        pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_LinearTerms.pdf' % (nameSeed))
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
         # now figure showing everythin that is not offset, global scale, or global rotation
         # total offset due to k>4
@@ -986,12 +986,12 @@ class lazAstrometryCoefficients(object):
         VV = np.zeros((1, V_scale.shape[0], V_scale.shape[1]))
         VV[0, :, :] = V_nonlin
 
-        fig = pl.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
+        plt.clf()
         titles = np.array(['', 'Rotation offset', 'Scale offset', 'Skew offset'])
         for j, axis in enumerate(axes):
             for iii in [0]:
-                ax = pl.subplot(1, 2, iii * 2 + j + 1)
+                ax = plt.subplot(1, 2, iii * 2 + j + 1)
 
                 U = np.ma.masked_array(UU[iii, :, :], mask=~goodMeshMask)
                 V = np.ma.masked_array(VV[iii, :, :], mask=~goodMeshMask)
@@ -1003,22 +1003,22 @@ class lazAstrometryCoefficients(object):
                 scale_min = np.min(z)
                 scale_max = np.max(z)
 
-                pl.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, z, cmap='RdBu', vmin=scale_min, vmax=scale_max)
-                pl.text(0.05, 0.07, 'Median %3.2f\nRMS %3.2f' % (np.ma.median(z), np.ma.std(z)), ha='left', va='center',
+                plt.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, z, cmap='RdBu', vmin=scale_min, vmax=scale_max)
+                plt.text(0.05, 0.07, 'Median %3.2f\nRMS %3.2f' % (np.ma.median(z), np.ma.std(z)), ha='left', va='center',
                         transform=ax.transAxes)
-                #                 pl.title('%s of k=4 terms in %s'%(titles[iii],axis))
-                pl.axis('equal')
-                pl.xlabel(xlabl)
-                pl.ylabel(ylabl)
-                cbar = pl.colorbar()
+                #                 plt.title('%s of k=4 terms in %s'%(titles[iii],axis))
+                plt.axis('equal')
+                plt.xlabel(xlabl)
+                plt.ylabel(ylabl)
+                cbar = plt.colorbar()
                 cbar.ax.get_yaxis().labelpad = 10
                 cbar.set_label('Amplitude (mas)', rotation=270)
 
         fig.tight_layout(h_pad=0.0)
-        pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_nonLinearTerms.pdf' % (nameSeed))
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
     def getPartialDerivatives(self, polynomial, evaluation_frame_number):
         ii = evaluation_frame_number
@@ -1114,31 +1114,31 @@ class lazAstrometryCoefficients(object):
             scale_min = np.min(scale)
             scale_max = np.max(scale)
 
-            fig = pl.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
-            pl.clf()
-            pl.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, scale, cmap='RdBu', vmin=scale_min, vmax=scale_max)
-            pl.plot(referencePointForProjection_Pix[0], referencePointForProjection_Pix[1], 'ko')
+            fig = plt.figure(figsize=(7, 7), facecolor='w', edgecolor='k')
+            plt.clf()
+            plt.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, scale, cmap='RdBu', vmin=scale_min, vmax=scale_max)
+            plt.plot(referencePointForProjection_Pix[0], referencePointForProjection_Pix[1], 'ko')
 
-            pl.title('Global scale, reference=%1.8f' % (referencePointScale))
-            pl.axis('equal')
-            pl.xlabel(xlabl)
-            pl.ylabel(ylabl)
-            ax = pl.gca()
-            pl.text(0.05, 0.05, 'Median %1.1e\nRMS %1.1e' % (np.ma.median(scale), np.ma.std(scale)), ha='left',
+            plt.title('Global scale, reference=%1.8f' % (referencePointScale))
+            plt.axis('equal')
+            plt.xlabel(xlabl)
+            plt.ylabel(ylabl)
+            ax = plt.gca()
+            plt.text(0.05, 0.05, 'Median %1.1e\nRMS %1.1e' % (np.ma.median(scale), np.ma.std(scale)), ha='left',
                     va='center', transform=ax.transAxes)
-            pl.colorbar(format='%1.1e')
-            pl.show()
+            plt.colorbar(format='%1.1e')
             fig.tight_layout(h_pad=0.0)
             if save_plot == 1:
                 figName = os.path.join(outDir, '%s_globalscale.pdf' % (nameSeed))
-                pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+                plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.show()
 
         for crossterm in [0, 1]:
-            fig = pl.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
-            pl.clf()
+            fig = plt.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
+            plt.clf()
             referencePointScale = np.zeros(2)
             for j, axis in enumerate(axes):
-                ax = pl.subplot(1, 2, j + 1)
+                ax = plt.subplot(1, 2, j + 1)
                 if axis == 'x':
                     if crossterm == 0:
                         dfexpr = sympy.diff(polynomial, x)
@@ -1165,26 +1165,26 @@ class lazAstrometryCoefficients(object):
                 scale_min = np.min(scale)
                 scale_max = np.max(scale)
 
-                pl.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, scale, cmap='RdBu', vmin=scale_min, vmax=scale_max)
-                pl.plot(referencePointForProjection_Pix[0], referencePointForProjection_Pix[1], 'ko')
+                plt.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, scale, cmap='RdBu', vmin=scale_min, vmax=scale_max)
+                plt.plot(referencePointForProjection_Pix[0], referencePointForProjection_Pix[1], 'ko')
                 if crossterm == 0:
                     crossStr = ''
                 else:
                     crossStr = 'crossterm'
-                pl.title('%s-scale %s reference=%1.8f' % (axis, crossStr, referencePointScale[j]))
-                pl.axis('equal')
-                #             pl.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
-                pl.xlabel(xlabl)
-                pl.ylabel(ylabl)
-                pl.text(0.05, 0.05, 'Median %1.1e\nRMS %1.1e' % (np.ma.median(scale), np.ma.std(scale)), ha='left',
+                plt.title('%s-scale %s reference=%1.8f' % (axis, crossStr, referencePointScale[j]))
+                plt.axis('equal')
+                #             plt.plot(points[hull.vertices,0], points[hull.vertices,1], 'r--', lw=2)
+                plt.xlabel(xlabl)
+                plt.ylabel(ylabl)
+                plt.text(0.05, 0.05, 'Median %1.1e\nRMS %1.1e' % (np.ma.median(scale), np.ma.std(scale)), ha='left',
                         va='center', transform=ax.transAxes)
-                pl.colorbar(format='%1.1e')
-                pl.show()
+                plt.colorbar(format='%1.1e')
+                plt.show()
             fig.tight_layout(h_pad=0.0)
-            pl.show()
             if save_plot == 1:
                 figName = os.path.join(outDir, '%s_scale_%s.pdf' % (nameSeed, crossStr))
-                pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+                plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.show()
 
     def get_polynomial(self, Cs, P, partial_mode=0, include_all_higher_orders=True):
         """Return a polynomial model.
@@ -1312,8 +1312,8 @@ class lazAstrometryCoefficients(object):
         goodMeshMask = path.contains_points(np.array([x_mesh.flatten(), y_mesh.flatten()]).T).reshape(x_mesh.shape)
 
         if self.k == detailed_plot_k:
-            #             cm = pl.cm.get_cmap('RdYlBu')
-            cm = pl.cm.get_cmap('RdBu')
+            #             cm = plt.cm.get_cmap('RdYlBu')
+            cm = plt.cm.get_cmap('RdBu')
             axes = ['X', 'Y']
             modes = np.array([44, 4, 6])
             for jj, mode in enumerate(modes):
@@ -1341,10 +1341,10 @@ class lazAstrometryCoefficients(object):
                         'plotDistortion: terms of {0:d} and higher  max/min/rms correction in X is {1:1.2f}/{2:1.2f}/{5:1.2f}  max/min correction in Y is {3:1.2f}/{4:1.2f}/{6:1.2f}'.format(
                             mode, np.ma.max(U), np.ma.min(U), np.ma.max(V), np.ma.min(V), np.ma.std(U), np.ma.std(V)))
 
-                fig = pl.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
-                pl.clf()
+                fig = plt.figure(figsize=(12, 5), facecolor='w', edgecolor='k')
+                plt.clf()
                 for j, axis in enumerate(axes):
-                    ax = pl.subplot(1, 2, j + 1)
+                    ax = plt.subplot(1, 2, j + 1)
                     if axis == 'X':
                         z = U
                     elif axis == 'Y':
@@ -1354,37 +1354,37 @@ class lazAstrometryCoefficients(object):
 
                     #                     my_cmap = 'bone'
                     my_cmap = 'RdBu'
-                    pl.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, z, cmap=my_cmap, vmin=scale_min, vmax=scale_max)
+                    plt.pcolor(x_mesh * xy_scale, y_mesh * xy_scale, z, cmap=my_cmap, vmin=scale_min, vmax=scale_max)
 
-                    #                 sc = pl.scatter(x_mesh.flatten()[goodMask], y_mesh.flatten()[goodMask], c=z[goodMask], cmap=cm,edgecolors='face',alpha=1.0,s=4) # , vmin=0, vmax=20, s=35
-                    #                 pl.colorbar(sc)
-                    pl.text(0.05, 0.05, 'Median %3.2f\nRMS %3.2f' % (np.ma.median(z), np.ma.std(z)), ha='left',
+                    #                 sc = plt.scatter(x_mesh.flatten()[goodMask], y_mesh.flatten()[goodMask], c=z[goodMask], cmap=cm,edgecolors='face',alpha=1.0,s=4) # , vmin=0, vmax=20, s=35
+                    #                 plt.colorbar(sc)
+                    plt.text(0.05, 0.05, 'Median %3.2f\nRMS %3.2f' % (np.ma.median(z), np.ma.std(z)), ha='left',
                             va='center', transform=ax.transAxes)
                     if mode == 4:
-                        pl.title('Distortion in %s of k=4 terms' % (axis))
+                        plt.title('Distortion in %s of k=4 terms' % (axis))
                     elif mode == 44:
-                        pl.title('Distortion in %s of k>2 terms' % (axis))
+                        plt.title('Distortion in %s of k>2 terms' % (axis))
                     else:
-                        pl.title('Distortion in %s of k>4 terms' % (axis))
-                    pl.axis('equal')
-                    pl.xlabel(xlabl)
-                    pl.ylabel(ylabl)
-                    cbar = pl.colorbar()
+                        plt.title('Distortion in %s of k>4 terms' % (axis))
+                    plt.axis('equal')
+                    plt.xlabel(xlabl)
+                    plt.ylabel(ylabl)
+                    cbar = plt.colorbar()
                     cbar.ax.get_yaxis().labelpad = 10
                     cbar.set_label('Amplitude (mas)', rotation=270)
-                    #             pl.colorbar(format='%1.1e')
+                    #             plt.colorbar(format='%1.1e')
                 fig.tight_layout(h_pad=0.0)
-                pl.show()
                 if save_plot == 1:
                     figName = os.path.join(outDir, '%s_mode%d_distortionSkyNew.pdf' % (nameSeed, mode))
-                    pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+                    plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+                plt.show()
                     #             1/0
 
         modes = np.arange(self.k + 1)[::2]
-        fig = pl.figure(figsize=(12, np.ceil(len(modes) / 3.) * 3), facecolor='w', edgecolor='k')
-        pl.clf()
+        fig = plt.figure(figsize=(12, np.ceil(len(modes) / 3.) * 3), facecolor='w', edgecolor='k')
+        plt.clf()
         for jj, mode in enumerate(modes):
-            pl.subplot(np.ceil(len(modes) / 3.), 3, jj + 1)
+            plt.subplot(np.ceil(len(modes) / 3.), 3, jj + 1)
 
             if mode == 0:  # show total distortion
                 xp, yp = self.apply_polynomial_transformation(evaluation_frame_number, x_mesh, y_mesh, partial_mode=mode)
@@ -1406,21 +1406,21 @@ class lazAstrometryCoefficients(object):
                 'plotDistortion: {0:d}  max/min/rms correction in X is {1:1.2f}/{2:1.2f}/{5:1.2f}  max/min correction in Y is {3:1.2f}/{4:1.2f}/{6:1.2f}'.format(
                     mode, np.ma.max(U), np.ma.min(U), np.ma.max(V), np.ma.min(V), np.ma.std(U), np.ma.std(V)))
 
-            #             pl.quiver(x_mesh*xy_scale,y_mesh*xy_scale, U, V, angles='xy')
-            pl.streamplot(xx * xy_scale, yy * xy_scale, U, V)
+            #             plt.quiver(x_mesh*xy_scale,y_mesh*xy_scale, U, V, angles='xy')
+            plt.streamplot(xx * xy_scale, yy * xy_scale, U, V)
 
             maxlim = np.max([x_mesh, y_mesh]) * xy_scale
-            pl.xlim((-maxlim, maxlim))
-            pl.ylim((-maxlim, maxlim))
-            pl.axis('square')
-            pl.xlabel(xlabl)
-            pl.ylabel(ylabl)
-            pl.title('Distortion model (%s)' % lbl)
+            plt.xlim((-maxlim, maxlim))
+            plt.ylim((-maxlim, maxlim))
+            plt.axis('square')
+            plt.xlabel(xlabl)
+            plt.ylabel(ylabl)
+            plt.title('Distortion model (%s)' % lbl)
         fig.tight_layout(h_pad=0.0)
-        pl.show()
         if save_plot == 1:
             figName = os.path.join(outDir, '%s_distortion.pdf' % nameSeed)
-            pl.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figName, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
 
     def correctCatalogForDistortion(self, evaluation_frame_number, ra, dec, referencePointForProjection_RADec, scale):
         ii = evaluation_frame_number
@@ -1450,8 +1450,8 @@ class lazAstrometryCoefficients(object):
         bad_star_index = []
 
         if show_plot:
-            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-            pl.clf()
+            plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+            plt.clf()
         for j in np.arange(number_of_stars):
             if (j == 0) & (exclude_target):  # skip target
                 continue
@@ -1463,20 +1463,20 @@ class lazAstrometryCoefficients(object):
                 bad_star_index.append(j)
                 continue
             if show_plot:
-                pl.subplot(2, 1, 1)
-                pl.plot(coord[index], residuals_x[index])
-                pl.subplot(2, 1, 2)
-                pl.plot(coord[index], residuals_y[index])
+                plt.subplot(2, 1, 1)
+                plt.plot(coord[index], residuals_x[index])
+                plt.subplot(2, 1, 2)
+                plt.plot(coord[index], residuals_y[index])
         if show_plot:
-            pl.xlabel('Frame number')
-            pl.subplot(2, 1, 1)
-            pl.title('Distortion-fit residuals of {} well-behaved stars (|O-C|<{:2.2f})'.format(number_of_stars-len(bad_star_index), absolute_threshold))
-            pl.show()
+            plt.xlabel('Frame number')
+            plt.subplot(2, 1, 1)
+            plt.title('Distortion-fit residuals of {} well-behaved stars (|O-C|<{:2.2f})'.format(number_of_stars-len(bad_star_index), absolute_threshold))
+            plt.show()
 
         # plot RMS
         if 0:
-            pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-            pl.clf()
+            plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+            plt.clf()
 
             for i in np.arange(number_of_frames):
                 index = np.where(self.p[i, :, self.colNames.tolist().index('artificial')] == 0)[0]
@@ -1488,14 +1488,14 @@ class lazAstrometryCoefficients(object):
                 residuals_y = np.array([self.resy[i].residuals[j] for j in index])
                 residuals_x = np.array([self.resx[i].residuals[j] for j in index])
                 # residuals_y = np.array([self.resy[i].residuals[j] for j in range(number_of_stars)])
-                pl.subplot(2,1,1)
-                # pl.plot(i, np.std(residuals_x[index]), 'bo')
-                pl.plot(i, np.std(residuals_x), 'bo')
-                pl.subplot(2,1,2)
-                pl.plot(i, np.std(residuals_y), 'ro')
-                # pl.plot(i, np.std(residuals_y[index]), 'ro')
-            pl.xlabel('Frame number')
-            pl.show()
+                plt.subplot(2,1,1)
+                # plt.plot(i, np.std(residuals_x[index]), 'bo')
+                plt.plot(i, np.std(residuals_x), 'bo')
+                plt.subplot(2,1,2)
+                plt.plot(i, np.std(residuals_y), 'ro')
+                # plt.plot(i, np.std(residuals_y[index]), 'ro')
+            plt.xlabel('Frame number')
+            plt.show()
 
 
         return bad_star_index
@@ -1646,7 +1646,7 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
 
 
     if show_plot:
-        fig, axes = pl.subplots(n_figure_rows, n_figure_columns,
+        fig, axes = plt.subplots(n_figure_rows, n_figure_columns,
                                 figsize=(n_figure_rows * row_width, n_figure_columns * column_width),
                                 facecolor='w', edgecolor='k', sharex=True, sharey=False,
                                 squeeze=False)
@@ -1686,11 +1686,11 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
                 axes[fig_row][fig_col].axhline(0, ls='--', c='0.7')
 
         fig.tight_layout(h_pad=0.0)
-        pl.show()
-
         if save_plot:
             figure_name = os.path.join(plot_dir, '{}_distortion_parameters_per_frame.pdf'.format(name_seed))
-            pl.savefig(figure_name, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figure_name, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
+
 
     distortion_statistics = Table()
     distortion_statistics['rms_x'] = lazAC.rms[:, 0]
@@ -1702,7 +1702,7 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
     n_figure_rows = np.int(np.ceil(n_panels / n_figure_columns))
 
     if show_plot:
-        fig, axes = pl.subplots(n_figure_rows, n_figure_columns,
+        fig, axes = plt.subplots(n_figure_rows, n_figure_columns,
                                 figsize=(n_figure_columns * 10, n_figure_rows * 2),
                                 facecolor='w', edgecolor='k', sharex=True, sharey=False,
                                 squeeze=False)
@@ -1728,11 +1728,11 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
                     axes[fig_row][fig_col].axvline(boundary, color='0.7', ls='--')
 
         fig.tight_layout(h_pad=0.0)
-        pl.show()
         if save_plot:
             figure_name = os.path.join(plot_dir,
                                        '{}_distortion_residualrms_per_frame.pdf'.format(name_seed))
-            pl.savefig(figure_name, transparent=True, bbox_inches='tight', pad_inches=0)
+            plt.savefig(figure_name, transparent=True, bbox_inches='tight', pad_inches=0)
+        plt.show()
         # 1/0
 
 ########################################################################################
@@ -2364,33 +2364,33 @@ def fitDistortion(mp, k, reference_frame_number=0, evaluation_frame_number=1, ta
         X, Y = x[0, :], y[0, :]
         U, V = x[1, :] - x[0, :], y[1, :] - y[0, :]
 
-        pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-        pl.clf()
-        Q = pl.quiver(X, Y, U, V, angles='xy')
-        #       ax = pl.gca()
+        plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+        plt.clf()
+        Q = plt.quiver(X, Y, U, V, angles='xy')
+        #       ax = plt.gca()
         #       ax.invert_xaxis()
         #       ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         #       ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-        pl.title('Difference between catalog positions')
-        pl.show()
+        plt.title('Difference between catalog positions')
+        plt.show()
 
-        fig = pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-        pl.clf()
-        pl.hist(U, 50, color='b', label='X')
-        pl.hist(V, 50, color='r', alpha=0.5, label='Y')
-        pl.xlabel('Coordinate Difference in X and Y ')
-        pl.legend(loc='best')
+        fig = plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+        plt.clf()
+        plt.hist(U, 50, color='b', label='X')
+        plt.hist(V, 50, color='r', alpha=0.5, label='Y')
+        plt.xlabel('Coordinate Difference in X and Y ')
+        plt.legend(loc='best')
         fig.tight_layout(h_pad=0.0)
-        pl.show()
+        plt.show()
 
-        pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-        pl.clf()
-        pl.plot(x[0, :], y[0, :], 'bo')
-        pl.plot(x[1, :], y[1, :], 'ro')
-        ax = pl.gca()
+        plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+        plt.clf()
+        plt.plot(x[0, :], y[0, :], 'bo')
+        plt.plot(x[1, :], y[1, :], 'ro')
+        ax = plt.gca()
         ax.invert_xaxis()
-        pl.title('Catalog positions')
-        pl.show()
+        plt.title('Catalog positions')
+        plt.show()
 
     if (k == 2) & verbose:
         # has to use reduced coordinates, otherwise yields senseless results
@@ -2627,33 +2627,33 @@ def testDistortionFit():
     T['Id'] = range(len(T))
 
     if 0 == 1:
-        pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-        pl.clf()
-        pl.plot(T['ra'], T['dec'], 'bo')
-        pl.plot(T2['ra'], T2['dec'], 'ro')
-        ax = pl.gca()
+        plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+        plt.clf()
+        plt.plot(T['ra'], T['dec'], 'bo')
+        plt.plot(T2['ra'], T2['dec'], 'ro')
+        ax = plt.gca()
         ax.invert_xaxis()
-        pl.xlabel('Right Ascension (deg)')
-        pl.ylabel('Declination (deg)')
-        pl.title('Difference between catalog positions')
-        pl.show()
+        plt.xlabel('Right Ascension (deg)')
+        plt.ylabel('Declination (deg)')
+        plt.title('Difference between catalog positions')
+        plt.show()
 
     # display vector plot
     X, Y = T['ra'], T['dec']
     U, V = T2['ra'] - T['ra'], T2['dec'] - T['dec']
 
-    pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-    pl.clf()
-    Q = pl.quiver(X, Y, U, V, angles='xy')
-    ax = pl.gca()
+    plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+    plt.clf()
+    Q = plt.quiver(X, Y, U, V, angles='xy')
+    ax = plt.gca()
     ax.invert_xaxis()
     ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 
-    pl.xlabel('Right Ascension (deg)')
-    pl.ylabel('Declination (deg)')
-    pl.title('Difference between catalog positions')
-    pl.show()
+    plt.xlabel('Right Ascension (deg)')
+    plt.ylabel('Declination (deg)')
+    plt.title('Difference between catalog positions')
+    plt.show()
 
     Nstars = len(T)
     colNames = np.array(['tmp1', 'tmp2', 'x', 'y', 'tmp3', 'tmp4', 'id', 'original_id', 'sigma_x', 'sigma_y'])
@@ -2792,14 +2792,14 @@ def testDistortionFitLMC():
     # display vector plot
     X, Y = T['x'], T['y']
     U, V = T2['x'] - T['x'], T2['y'] - T['y']
-    pl.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
-    pl.clf()
-    Q = pl.quiver(X, Y, U, V, angles='xy')
-    pl.xlabel('X')
-    pl.ylabel('Y')
-    pl.axis('equal')
-    pl.title('Difference between catalog positions')
-    pl.show()
+    plt.figure(figsize=(8, 8), facecolor='w', edgecolor='k')
+    plt.clf()
+    Q = plt.quiver(X, Y, U, V, angles='xy')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.axis('equal')
+    plt.title('Difference between catalog positions')
+    plt.show()
 
     colNames = np.array(['x', 'y', 'id', 'original_id', 'sigma_x', 'sigma_y'])
     p = np.zeros((2, Nstars, len(colNames)))
