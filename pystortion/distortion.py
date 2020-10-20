@@ -360,7 +360,7 @@ class lazAstrometryCoefficients(object):
             y = norm.pdf(bins, mu, sigma)
             l = axs[i].plot(bins, y*normFact, 'k-', linewidth=2, color=linecolors[i],
                          label='{0:s}: $\mu$={2:1.3f}$\pm${1:1.3f}'.format(labels[i], sigma, mu))
-            axs[i].set_xlabel('Residual O-C (mas) in %',format(labels[i]))
+            axs[i].set_xlabel('Residual O-C (mas)')
             axs[i].set_ylabel('N')
         plt.show()
         plt.close()
