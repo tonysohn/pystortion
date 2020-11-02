@@ -41,7 +41,6 @@ import scipy.spatial
 import matplotlib
 
 from linearfit import linearfit
-from uhelpers import plotting_helpers
 
 try:
     from kapteyn import kmpfit
