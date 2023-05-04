@@ -42,11 +42,11 @@ import matplotlib
 
 from linearfit import linearfit
 
-try:
-    from kapteyn import kmpfit
-except ImportError:
-    print('kapteyn package is not available')
-    pass
+#try:
+#    from kapteyn import kmpfit
+#except ImportError:
+#    print('kapteyn package is not available')
+#    pass
 
 from .utils import plot_spatial_difference
 
@@ -191,7 +191,7 @@ def prepare_multi_epoch_astrometry(star_catalog_matched, reference_catalog_match
     i_oid = np.where(mp.colNames == 'original_id')[0][0]
 
     gnames = np.array(reference_catalog_matched[fieldname_dict['reference_catalog']['identifier']])
-    hnames = np.array(star_catalog_matched[fieldname_dict['star_catalog']['identifier']]).astype(np.int)
+    hnames = np.array(star_catalog_matched[fieldname_dict['star_catalog']['identifier']]).astype(np.int32)
     xmatchId = gnames
 
 
@@ -204,7 +204,7 @@ def prepare_multi_epoch_astrometry(star_catalog_matched, reference_catalog_match
         elif index == 1: # second catalog (reference, e.g. Gaia)
             catalog = copy.deepcopy(reference_catalog_matched)
             catalog_name = 'reference_catalog'
-            star_names = np.array(catalog[fieldname_dict[catalog_name]['identifier']]).astype(np.int)
+            star_names = np.array(catalog[fieldname_dict[catalog_name]['identifier']]).astype(np.int32)
 
         mp.p[index, :, [i_x, i_y, i_sx, i_sy, i_id, i_oid]] = np.vstack((
             np.array(catalog[fieldname_dict[catalog_name]['position_1']]),
@@ -1244,8 +1244,8 @@ class lazAstrometryCoefficients(object):
         else:
             minMode = partial_mode - 2
             maxMode = partial_mode
-            startIndex = np.int(minMode * (minMode + 2) / 8)
-            stopIndex = np.int(maxMode * (maxMode + 2) / 8)
+            startIndex = np.int32(minMode * (minMode + 2) / 8)
+            stopIndex = np.int32(maxMode * (maxMode + 2) / 8)
             print('minMode = %d, Startindex = %d, maxMode = %d, stopindex = %d' % (
             minMode, startIndex, maxMode, stopIndex))
             if include_all_higher_orders:
@@ -1281,8 +1281,8 @@ class lazAstrometryCoefficients(object):
         correct_for_reference_point = True
         if correct_for_reference_point:
             # subtract reference point
-            referencePositionX = self.referencePoint[np.int(ii), 0]
-            referencePositionY = self.referencePoint[np.int(ii), 1]
+            referencePositionX = self.referencePoint[np.int32(ii), 0]
+            referencePositionY = self.referencePoint[np.int32(ii), 1]
 
             xx -= referencePositionX
             yy -= referencePositionY
@@ -1681,7 +1681,7 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
         column_width = 3
     n_panels = len(parameters_to_plot)
     n_figure_columns = 3
-    n_figure_rows = np.int(np.ceil(n_panels / n_figure_columns))
+    n_figure_rows = np.int32(np.ceil(n_panels / n_figure_columns))
 
 
     if show_plot:
@@ -1694,8 +1694,8 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
             fig_row = jj % n_figure_rows
             fig_col = jj // n_figure_rows
 
-            # fig_col = np.int(np.floor(jj/n_figure_columns))
-            # fig_row = np.int(jj%n_figure_columns)
+            # fig_col = np.int32(np.floor(jj/n_figure_columns))
+            # fig_row = np.int32(jj%n_figure_columns)
 
             axes[fig_row][fig_col].plot(coord, T[name], 'bo')
             axes[fig_row][fig_col].errorbar(coord, T[name],
@@ -1739,7 +1739,7 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
 
     n_panels = len(distortion_statistics.colnames)
     n_figure_columns = 1
-    n_figure_rows = np.int(np.ceil(n_panels / n_figure_columns))
+    n_figure_rows = np.int32(np.ceil(n_panels / n_figure_columns))
 
     if show_plot:
         fig, axes = plt.subplots(n_figure_rows, n_figure_columns,
@@ -1751,8 +1751,8 @@ def plot_distortion_statistics(lazAC, epoch_boundaries=None, show_plot=True, sav
             fig_row = jj % n_figure_rows
             fig_col = jj // n_figure_rows
 
-            # fig_col = np.int(np.floor(jj/n_figure_columns))
-            # fig_row = np.int(jj%n_figure_columns)
+            # fig_col = np.int32(np.floor(jj/n_figure_columns))
+            # fig_row = np.int32(jj%n_figure_columns)
 
             axes[fig_row][fig_col].plot(coord, distortion_statistics[name], 'bo')
             if reference_frame_index is not None:
@@ -1788,7 +1788,7 @@ def weightedPolynomialResiduals(Alm, data):
     # ATTENTION, these residuals are weighted by the uncertainties.
 
     LHS, xx, yy, ex, ey, dfexpr = data
-    k = np.int(np.sqrt(8 * len(Alm) + 1) - 1)
+    k = np.int32(np.sqrt(8 * len(Alm) + 1) - 1)
     C, tmp = bivariate_polynomial(xx, yy, k, verbose=0)
     P = sympy.symbols('p0:%d' % len(Alm))
     replacements = (','.join(['("p%d",Alm[%d])' % (d, d) for d in range(len(Alm))]))
@@ -1817,75 +1817,75 @@ def weightedPolynomialResiduals(Alm, data):
 def polynomialResiduals(Alm, data):
     # O-C residuals (unweighted)
     LHS, xx, yy, ex, ey, dfexpr = data
-    k = np.int(np.sqrt(8 * len(Alm) + 1) - 1)
+    k = np.int32(np.sqrt(8 * len(Alm) + 1) - 1)
     C, tmp = bivariate_polynomial(xx, yy, k, verbose=0)
     omc = (np.array(LHS).flatten() - polynomialModel(Alm, C))
     return omc
 
 
-def fitPolynomialWithUncertaintyInXandY(LHS, ximinusx0, yiminusy0, uncertainty_X, uncertainty_LHS, initialParameters,
-                                        axis='x', verbose=0):
-    Nalm = len(initialParameters)
-    k = np.int(np.sqrt(8 * Nalm + 1) - 1)
-    P = sympy.symbols('p0:%d' % Nalm)
-    Cs, polynomialTermOrder = bivariate_polynomial(x, y, k, verbose=0)
-    polynomial = Matrix(Cs.T) * Matrix(P)
-
-    if axis == 'x':
-        dfexpr = sympy.diff(polynomial, x)
-    elif axis == 'y':
-        dfexpr = sympy.diff(polynomial, y)
-
-    data = (LHS, ximinusx0, yiminusy0, uncertainty_X, uncertainty_LHS, dfexpr)
-    #     print(polynomialResiduals(initialParameters,data))
-
-    fitobj = kmpfit.Fitter(residuals=weightedPolynomialResiduals, data=data, ftol=1e-19, gtol=1e-19, xtol=1e-19,
-                           covtol=1e-19)
-    fitobj.fit(params0=initialParameters)
-
-    #     if fitobj.xerror[0] == 0:
-    #         verbose=1
-
-    if verbose:
-        print(Matrix(P))
-        print(Matrix(Cs.T) * Matrix(P))
-        print(dfexpr)
-        print("======== Results kmpfit: weights for both coordinates ========= axis=%s " % axis)
-        print("Fitted parameters:      ", fitobj.params)
-        print("Covariance errors:      ", fitobj.xerror)
-        print("Standard errors         ", fitobj.stderr)
-        print("Chi^2 min:              ", fitobj.chi2_min)
-        print("Reduced Chi^2:          ", fitobj.rchi2_min)
-        print("Iterations:             ", fitobj.niter)
-        print('xtol\t', fitobj.xtol)
-        print('gtol\t', fitobj.gtol)
-        print('ftol\t', fitobj.ftol)
-        print('covtol\t', fitobj.covtol)
-        print('status\t', fitobj.status)
-        print('parinfo\t', fitobj.parinfo)
-        print('params0\t', fitobj.params0)
-        print('npegged\t', fitobj.npegged)
-        print('orignorm\t', fitobj.orignorm)
-        print('nfev\t', fitobj.nfev)
-
-    #     fitobj.nfree is the number of free parameters, NOT degrees of freedom
-    Nmes = LHS.shape[1]
-    Nparam = Nalm
-    omc = polynomialResiduals(fitobj.params, data)
-    Nfree = Nmes - Nparam
-
-    # fake a linearfit object
-    res = linearfit.LinearFit(np.mat(1), np.mat(1), np.mat(1))
-    res.p = fitobj.params
-    res.p_normalised_uncertainty = fitobj.xerror
-    res.p_formal_uncertainty = fitobj.stderr
-    res.p_formal_covariance_matrix = fitobj.covar
-    res.residuals = omc
-    res.fit = None
-    res.chi2 = fitobj.chi2_min
-    res.n_freedom = Nfree
-
-    return res
+#def fitPolynomialWithUncertaintyInXandY(LHS, ximinusx0, yiminusy0, uncertainty_X, uncertainty_LHS, initialParameters,
+#                                        axis='x', verbose=0):
+#    Nalm = len(initialParameters)
+#    k = np.int32(np.sqrt(8 * Nalm + 1) - 1)
+#    P = sympy.symbols('p0:%d' % Nalm)
+#    Cs, polynomialTermOrder = bivariate_polynomial(x, y, k, verbose=0)
+#    polynomial = Matrix(Cs.T) * Matrix(P)
+#
+#    if axis == 'x':
+#        dfexpr = sympy.diff(polynomial, x)
+#    elif axis == 'y':
+#        dfexpr = sympy.diff(polynomial, y)
+#
+#    data = (LHS, ximinusx0, yiminusy0, uncertainty_X, uncertainty_LHS, dfexpr)
+#    #     print(polynomialResiduals(initialParameters,data))
+#
+#    fitobj = kmpfit.Fitter(residuals=weightedPolynomialResiduals, data=data, ftol=1e-19, gtol=1e-19, xtol=1e-19,
+#                           covtol=1e-19)
+#    fitobj.fit(params0=initialParameters)
+#
+#    #     if fitobj.xerror[0] == 0:
+#    #         verbose=1
+#
+#    if verbose:
+#        print(Matrix(P))
+#        print(Matrix(Cs.T) * Matrix(P))
+#        print(dfexpr)
+#        print("======== Results kmpfit: weights for both coordinates ========= axis=%s " % axis)
+#        print("Fitted parameters:      ", fitobj.params)
+#        print("Covariance errors:      ", fitobj.xerror)
+#        print("Standard errors         ", fitobj.stderr)
+#        print("Chi^2 min:              ", fitobj.chi2_min)
+#        print("Reduced Chi^2:          ", fitobj.rchi2_min)
+#        print("Iterations:             ", fitobj.niter)
+#        print('xtol\t', fitobj.xtol)
+#        print('gtol\t', fitobj.gtol)
+#        print('ftol\t', fitobj.ftol)
+#        print('covtol\t', fitobj.covtol)
+#        print('status\t', fitobj.status)
+#        print('parinfo\t', fitobj.parinfo)
+#        print('params0\t', fitobj.params0)
+#        print('npegged\t', fitobj.npegged)
+#        print('orignorm\t', fitobj.orignorm)
+#        print('nfev\t', fitobj.nfev)
+#
+#    #     fitobj.nfree is the number of free parameters, NOT degrees of freedom
+#    Nmes = LHS.shape[1]
+#    Nparam = Nalm
+#    omc = polynomialResiduals(fitobj.params, data)
+#    Nfree = Nmes - Nparam
+#
+#    # fake a linearfit object
+#    res = linearfit.LinearFit(np.mat(1), np.mat(1), np.mat(1))
+#    res.p = fitobj.params
+#    res.p_normalised_uncertainty = fitobj.xerror
+#    res.p_formal_uncertainty = fitobj.stderr
+#    res.p_formal_covariance_matrix = fitobj.covar
+#    res.residuals = omc
+#    res.fit = None
+#    res.chi2 = fitobj.chi2_min
+#    res.n_freedom = Nfree
+#
+#    return res
 
 
 ########################################################################################
@@ -1994,7 +1994,7 @@ def getLazAstrometryCoefficientsFlexible(mp_input, k, reference_frame_number, ta
         s_p_red[:, :, [ix, iy]] = s_p[:, :, [ix, iy]]
 
     # number of polynomial coefficients  per axis (k=4 => Nalm = 3)
-    Nalm = np.int(k * (k + 2) / 8)
+    Nalm = np.int32(k * (k + 2) / 8)
     if Nalm > Nstars:
         raise RuntimeError('NOT ENOUGH REFERENCE STARS: {} stars, {} free parameters per axis'.format(Nstars, Nalm))
 
@@ -2919,8 +2919,8 @@ def construct_polynomial(Cs, P, partial_mode=0, includeAllHigherOrders=True):
     else:
         minMode = partial_mode - 2
         maxMode = partial_mode
-        startIndex = np.int(minMode * (minMode + 2) / 8)
-        stopIndex = np.int(maxMode * (maxMode + 2) / 8)
+        startIndex = np.int32(minMode * (minMode + 2) / 8)
+        stopIndex = np.int32(maxMode * (maxMode + 2) / 8)
         print('minMode = %d, Startindex = %d, maxMode = %d, stopindex = %d' % (minMode, startIndex, maxMode, stopIndex))
         if includeAllHigherOrders:
             polynomial = Matrix(Cs[startIndex:].T) * Matrix(P[startIndex:])
@@ -2932,7 +2932,7 @@ def construct_polynomial(Cs, P, partial_mode=0, includeAllHigherOrders=True):
 
 def construct_partial_derivatives_siaf(polynomial, degree, coefficients_x, coefficients_y):
     #     ii = evaluation_frame_number
-    n_parameter = np.int((degree + 1) * (degree + 2) / 2)
+    n_parameter = np.int32((degree + 1) * (degree + 2) / 2)
     #     replacements_X = (','.join(['("p%d",self.Alm[%d,%d])'%(d,ii,d) for d in range(self.Nalm)]))
     #     replacements_Y = (','.join(['("p%d",self.Alm[%d,self.Nalm+%d])'%(d,ii,d) for d in range(self.Nalm)]))
 
@@ -2962,7 +2962,7 @@ def display_RotScaleSkew(coefficients_x, coefficients_y, verbose=False):
     n_parameter = len(coefficients_x)
 
     # polynomial degree
-    degree = np.int((np.sqrt(8 * n_parameter + 1) - 3) / 2)
+    degree = np.int32((np.sqrt(8 * n_parameter + 1) - 3) / 2)
 
     k = 2 * (degree + 1)
 

@@ -432,7 +432,7 @@ def xmatch(primary_cat, secondary_cat, xmatch_radius, rejection_level_sigma=0,
 
         UV_factor = primary_cat.ra.unit.to(u.milliarcsecond)
 
-        n_bins = np.int(len(xmatchDistance) / 5)
+        n_bins = np.int32(len(xmatchDistance) / 5)
 
         # xmatch diagnostics
         plt.figure(figsize=(12, 6), facecolor='w', edgecolor='k'); plt.clf()
