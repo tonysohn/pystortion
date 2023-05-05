@@ -1594,7 +1594,7 @@ def bivariate_polynomial(xval, yval, k=None, degree=None, maxDegree=None, verbos
         if verbose:
             print('Order of the returned array/matrix', xb[goodIndex])
 
-        return np.mat(gp[:, goodIndex]).T, xb[goodIndex].astype(np.str)
+        return np.mat(gp[:, goodIndex]).T, xb[goodIndex].astype(str)
 
 
 def getRefStarAstrometricData(mp, targetId):
@@ -2575,7 +2575,7 @@ def rotate(origin, px, py, angle_rad):
 #         problematic_columns = ['tycho2_id','phot_variable_flag']
 #         for colname in problematic_columns:
 #             if colname in d.colnames:
-#                 tmp = np.array(d[colname]).astype(np.str)
+#                 tmp = np.array(d[colname]).astype(str)
 #                 d.remove_column(colname)
 #                 d[colname] = tmp
 #         d.write(output_file_seed+'.fits',overwrite=overwrite)
