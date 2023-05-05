@@ -2005,8 +2005,8 @@ def getLazAstrometryCoefficientsFlexible(mp_input, k, reference_frame_number, ta
     rms = np.zeros((Nframes, 2))                  # holds rms parameters in X and Y
 
     # object arrays to hold linearfit results
-    sresx = np.ndarray((Nframes,), dtype=np.object)
-    sresy = np.ndarray((Nframes,), dtype=np.object)
+    sresx = np.ndarray((Nframes,), dtype=object)
+    sresy = np.ndarray((Nframes,), dtype=object)
 
     #     solve Thesis Eq.4.18
     #     for X for frame m = 1, exlude target by setting weigth to zero
